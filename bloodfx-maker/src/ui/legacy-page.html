@@ -171,6 +171,8 @@ table.where td .fxn { display: block; }
 /* save */
 .save { display: grid; gap: 12px; padding: 16px 18px; }
 .save .includes { display: grid; gap: 8px; }
+.inc-empty { color: var(--muted); }
+.inc-row .tick { color: var(--ok); font-weight: 700; }
 .save .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .status { font-size: 0.9rem; min-height: 1.4em; }
 .status.bad { color: var(--bad); }
@@ -210,11 +212,12 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
       <section class="panel save" aria-labelledby="save-h">
         <header>
           <h2 id="save-h">Save</h2>
-          <p>One zip with your new files and an install note. Install steps are under the workbench.</p>
+          <p>One zip with your tracer pack, your bloodfx.dat and an install note. Install steps are under the workbench.</p>
         </header>
         <div class="includes">
-          <label class="check"><input type="checkbox" id="inc-tracer" checked> <span id="inc-tracer-text">Tracer pack</span></label>
-          <label class="check"><input type="checkbox" id="inc-blood" checked> <span id="inc-blood-text">bloodfx.dat</span></label>
+          <p class="inc-row" id="inc-tracer-row" hidden><span class="tick" aria-hidden="true">✓</span> <span id="inc-tracer-text">Tracer pack</span></p>
+          <p class="inc-empty" id="inc-tracer-empty">Tracer: no pack loaded yet. <button class="link-btn" type="button" id="inc-load">Load a tracer pack</button></p>
+          <p class="inc-row"><span class="tick" aria-hidden="true">✓</span> <span id="inc-blood-text">bloodfx.dat</span></p>
         </div>
         <div class="actions">
           <button class="btn primary" id="save" type="button">Save files (.zip)</button>
@@ -263,6 +266,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
             <span class="label" id="lbl-style">Look</span>
             <div class="seg" id="style" role="group" aria-labelledby="lbl-style">
               <button type="button" data-v="keep">Keep pack's</button>
+              <button type="button" data-v="none">None</button>
               <button type="button" data-v="solid">Solid</button>
               <button type="button" data-v="neon">Neon</button>
               <button type="button" data-v="twin">Twin</button>
@@ -285,6 +289,8 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
             <div class="colour"><label class="check"><input type="checkbox" id="tint-on"> Tint</label><input type="color" id="tint" value="#ffffff" aria-label="Tint colour"></div>
           </div>
           <p class="hint" id="keep-hint" hidden>Keeping the pack's look leaves its tracer texture alone. Speed, glow and size below still apply.</p>
+          <p class="hint" id="none-hint" hidden>No beam: only the smoke trail shows, from the first moment, like the pink tracers pack.</p>
+          <p class="note" id="nothing-note" hidden>With no beam and no smoke trail, nothing shows. Pick a smoke trail below.</p>
         </div>
 
         <div class="group" id="smoke-group">
@@ -489,7 +495,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
   const STOCK = { glow: 15, zoom: 1, far: 200, speed: 1, stay: 0.1, life: 0.07 };
   const state = {
     pack: null,
-    tracer: { style: 'neon', colour: '#ff2bd6', core: '#ffffff', width: 4, tintOn: false, tint: '#ffffff',
+    tracer: { style: 'solid', colour: '#ff2bd6', core: '#ffffff', width: 3, tintOn: false, tint: '#ffffff',
               smoke: 'off', smokeColour: '#8a6bff', smokeWidth: 3, ...STOCK },
     packValues: { ...STOCK },
     touched: new Set(),
@@ -564,10 +570,12 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
       showOut(k, t[k]);
       document.getElementById(k + '-out').classList.toggle('changed', state.touched.has(k));
     }
-    const keep = t.style === 'keep';
-    $('#row-colour').hidden = keep;
+    const keep = t.style === 'keep', none = t.style === 'none';
+    $('#row-colour').hidden = keep || none;
     $('#row-core').hidden = t.style !== 'neon';
-    $('#row-width').hidden = keep;
+    $('#row-width').hidden = keep || none;
+    $('#none-hint').hidden = !none;
+    $('#nothing-note').hidden = !(none && t.smoke === 'off');
     $('#row-tint').hidden = !keep;
     $('#keep-hint').hidden = !keep;
     $('#smoke-group').hidden = keep;
@@ -610,9 +618,11 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
   });
 
   const TRACER_PRESETS = [
-    { name: 'Slow beam', sw: '#39e6ff', set: { style: 'neon', colour: '#39e6ff', core: '#ffffff', width: 5, smoke: 'off', glow: 22, zoom: 1.6, far: 500, speed: 0.5, stay: 1, life: 0.09 } },
+    { name: 'Smoke trail', sw: '#ffffff', set: { style: 'none', smoke: 'line', smokeColour: '#ffffff', smokeWidth: 3, glow: 15, zoom: 1, far: 200, speed: 1, stay: 0.6, life: 0.07 } },
+    { name: 'Gold smoke', sw: '#ffc21f', set: { style: 'none', smoke: 'line', smokeColour: '#ffc21f', smokeWidth: 4, glow: 15, zoom: 1, far: 200, speed: 1, stay: 0.6, life: 0.07 } },
+    { name: 'Slow beam', sw: '#39e6ff', set: { style: 'solid', colour: '#39e6ff', width: 3, smoke: 'off', glow: 20, zoom: 1.6, far: 500, speed: 0.5, stay: 1, life: 0.09 } },
     { name: 'Laser', sw: '#ff2a3d', set: { style: 'neon', colour: '#ff2a3d', core: '#ffffff', width: 3, smoke: 'off', glow: 30, zoom: 1.1, far: 500, speed: 1, stay: 0.1, life: 0.07 } },
-    { name: 'Pink smoke', sw: '#f0a8ff', set: { style: 'solid', colour: '#f0a8ff', width: 3, smoke: 'wavy', smokeColour: '#e7c3f7', smokeWidth: 4, glow: 15, zoom: 1, far: 200, speed: 1, stay: 0.4, life: 0.07 } },
+    { name: 'Pink smoke', sw: '#f0a8ff', set: { style: 'none', smoke: 'wavy', smokeColour: '#e7c3f7', smokeWidth: 4, glow: 15, zoom: 1, far: 200, speed: 1, stay: 0.4, life: 0.07 } },
     { name: 'Slow confetti', sw: '#ffffff', set: { style: 'solid', colour: '#ffffff', width: 3, smoke: 'off', glow: 15, zoom: 1, far: 200, speed: 0.2, stay: 0.7, life: 0.07 } },
     { name: 'Thick bar', sw: '#ff1e1e', set: { style: 'solid', colour: '#ff1e1e', width: 8, smoke: 'off', glow: 18, zoom: 1.3, far: 500, speed: 1, stay: 0.1, life: 0.07 } },
     { name: 'Twin rails', sw: '#7dff6a', set: { style: 'twin', colour: '#7dff6a', width: 9, smoke: 'line', smokeColour: '#7dff6a', smokeWidth: 1, glow: 20, zoom: 1.2, far: 400, speed: 0.7, stay: 0.6, life: 0.08 } },
@@ -681,7 +691,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
       err.hidden = false;
       renderPackInfo();
       renderIncludes();
-      setStatus('');
+      setStatus(`Couldn't load ${file.name}: ${err.textContent}`, 'bad');
     }
   }
 
@@ -1021,6 +1031,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
       el.append(span);
     };
     if (t.style === 'keep') add('beam', state.pack ? 'pack texture' : 'stock look', t.tintOn ? t.tint : null);
+    else if (t.style === 'none') add('beam', 'none, smoke only');
     else add('beam', `${t.style} ${t.width}px ${t.colour.toUpperCase()}`, t.colour);
     add('glow', t.glow.toFixed(0));
     add('speed', '×' + t.speed.toFixed(2));
@@ -1031,14 +1042,12 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
 
   function renderIncludes() {
     const p = state.pack;
-    const tr = $('#inc-tracer'), trText = $('#inc-tracer-text');
-    tr.disabled = !p;
-    if (!p) { tr.checked = false; trText.textContent = 'Tracer pack (load one in the Tracer tab)'; }
-    else { trText.textContent = 'Tracer: ' + (p.kind === 'ypt' ? 'core.ypt' : 'mods/' + p.fileName); if (!tr.dataset.userSet) tr.checked = true; }
-    const bl = $('#inc-blood-text');
-    bl.textContent = 'Blood: bloodfx.dat' + (bloodCache && !bloodCache.changed ? ' (same as the starting file)' : '');
+    $('#inc-tracer-row').hidden = !p;
+    $('#inc-tracer-empty').hidden = !!p;
+    if (p) $('#inc-tracer-text').textContent = 'Tracer: ' + (p.kind === 'ypt' ? 'core.ypt' : 'mods/' + p.fileName);
+    $('#inc-blood-text').textContent = 'Blood: bloodfx.dat' + (bloodCache && !bloodCache.changed ? ' (same as the starting file)' : '');
   }
-  $('#inc-tracer').addEventListener('change', (e) => { e.target.dataset.userSet = '1'; });
+  $('#inc-load').addEventListener('click', () => { $('#tab-tracer').click(); $('#pack-file').click(); });
 
   // ------------------------------------------------------------ preview
   const canvas = $('#scene');
@@ -1473,10 +1482,15 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
 
   $('#save').addEventListener('click', async () => {
     const btn = $('#save');
-    const wantTracer = $('#inc-tracer').checked && state.pack;
-    const wantBlood = $('#inc-blood').checked;
-    if (!wantTracer && !wantBlood) { setStatus('Tick at least one file to save.', 'bad'); return; }
     if (!downloads) { setStatus('Saving files works when this page is open in Claude.', 'bad'); return; }
+    if (!state.pack) {
+      // the zip always holds both files, and the tracer is built from one of your packs
+      setStatus('Load your tracer pack first, then press Save again.', 'bad');
+      $('#tab-tracer').click();
+      $('#pack-file').click();
+      return;
+    }
+    const wantTracer = true, wantBlood = true;
     btn.disabled = true;
     try {
       const files = [];

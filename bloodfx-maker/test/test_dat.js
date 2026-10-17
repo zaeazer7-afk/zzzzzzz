@@ -2,7 +2,7 @@
 // Usage: node test/test_dat.js [packs folder]
 const fs = require('fs');
 const path = require('path');
-const core = require('../src/bfxcore.js');
+const core = require('../src/core/bfxcore.js');
 
 const packsDir = process.argv[2] || path.join(__dirname, '..', '..', '[bloodfx-packs]');
 const files = fs.readdirSync(packsDir).map((d) => path.join(packsDir, d, 'bloodfx.dat')).filter((f) => fs.existsSync(f));

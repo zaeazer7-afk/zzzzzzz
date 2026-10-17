@@ -10,10 +10,10 @@ const read = (name) => fs.readFileSync(path.join(src, name));
 const base = read('base_bloodfx.dat');
 const baseB64 = zlib.deflateRawSync(base, { level: 9 }).toString('base64');
 const effects = JSON.parse(read('core_effects.json').toString('utf8'));
-const coreSrc = read('bfxcore.js').toString('utf8');
-if (/<\/script/i.test(coreSrc)) throw new Error('bfxcore.js must not contain a closing script tag');
+const coreSrc = read('core/bfxcore.js').toString('utf8');
+if (/<\/script/i.test(coreSrc)) throw new Error('core/bfxcore.js must not contain a closing script tag');
 
-let page = read('page.html').toString('utf8');
+let page = read('ui/legacy-page.html').toString('utf8');
 const swap = (marker, value) => {
   if (!page.includes(marker)) throw new Error('page.html is missing ' + marker);
   page = page.split(marker).join(value);

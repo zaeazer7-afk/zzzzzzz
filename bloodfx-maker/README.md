@@ -1,6 +1,6 @@
 # BloodFX Maker
 
-A one-page tool that makes custom bullet tracers and hit effects for FiveM, starting from the packs you already have. It saves a zip with a new tracer `.rpf` for your FiveM `mods` folder and a new `bloodfx.dat`.
+A one-page tool that makes custom bullet tracers and hit effects for FiveM, starting from the packs you already have. Save always gives you one zip with both files: a new tracer `.rpf` for your FiveM `mods` folder and a new `bloodfx.dat`. The tracer is built from one of your packs, so Save asks for a pack if none is loaded.
 
 Open `index.html` in a browser, or use the hosted copy in Claude. Your files are read and rebuilt in the page itself and are never uploaded. The page loads one script (pako, for compression) from cdnjs, so it needs an internet connection.
 
@@ -10,8 +10,8 @@ Load a tracer pack (`.rpf`, such as `bluetrace.rpf` or `TRacer.rpf`) or a loose 
 
 | Control | What it changes in `core.ypt` |
 | --- | --- |
-| Look, colour, width | Redraws the tracer sheet `ptfx_bullet_tracer`. Frame 3 of its four frames is the beam: solid, neon (white core) or twin lines. The beam particle colour and emitter tint are set to white so the drawn colour shows as picked. |
-| Smoke trail | Frames 0–2 of the same sheet, which the smoke trail animates through: off, straight line or wavy line. |
+| Look, colour, width | Redraws the tracer sheet `ptfx_bullet_tracer`. Frame 3 of its four frames is the beam: none (smoke only), solid, neon (thin white core) or twin lines. The beam particle colour and emitter tint are set to white so the drawn colour shows as picked. |
+| Smoke trail | Frames 0–2 of the same sheet. The game plays them in order over the smoke's life. Straight draws soft smoke that widens, fades and breaks up from frame to frame; wavy draws a hard wavy line. |
 | Keep pack's | Leaves the sheet alone. Tint multiplies the pack's own colours instead. |
 | Glow | Emissive intensity of the `bullet_tracer` particle (stock 15–16). |
 | Thickness | Zoom scalar of the tracer emitter (stock 1). |
@@ -51,4 +51,4 @@ node test/test_dat.js      # bloodfx.dat editing, on every bloodfx.dat in [blood
 node test/test_tracer.js   # tracer patching on every core.ypt in [bloodfx-packs], plus a nested .rpf round trip
 ```
 
-`src/bfxcore.js` holds the RPF, resource, `core.ypt` and `bloodfx.dat` code and runs in browsers and Node. `src/page.html` is the page. The build inlines the core, `src/base_bloodfx.dat` and `src/core_effects.json` (the effect names in GTA's standard `core.ypt`).
+`src/core/bfxcore.js` holds the RPF, resource, `core.ypt` and `bloodfx.dat` code and runs in browsers and Node. `src/ui/legacy-page.html` is the page. The build inlines the core, `src/base_bloodfx.dat` and `src/core_effects.json` (the effect names in GTA's standard `core.ypt`).

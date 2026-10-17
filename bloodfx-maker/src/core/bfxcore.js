@@ -45,7 +45,7 @@
     path = path || 'archive.rpf';
     if (bytes.length < 16) throw new Error(`${path} is too small to be an RPF archive`);
     const d = dv(bytes);
-    if (d.getUint32(0, true) !== RPF7) throw new Error(`${path} is not an RPF7 archive`);
+    if (d.getUint32(0, true) !== RPF7) throw new Error(`${path} isn't a GTA V .rpf file`);
     const count = d.getUint32(4, true);
     const namesLen = d.getUint32(8, true);
     const encryption = d.getUint32(12, true);
@@ -526,16 +526,56 @@
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
   }
 
+  // Smooth seeded noise along one axis, 0..1, used to break smoke up.
+  function valueNoise(seed, cells) {
+    let state = seed >>> 0;
+    const next = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
+    const knots = Array.from({ length: cells + 2 }, next);
+    return (t) => {
+      const x = Math.min(0.999999, Math.max(0, t)) * cells;
+      const i = Math.floor(x), f = x - i, s = f * f * (3 - 2 * f);
+      return knots[i] + (knots[i + 1] - knots[i]) * s;
+    };
+  }
+
+  // Straight smoke for frames 0-2. The game plays them in order over the smoke's life, so each frame is a little
+  // older: soft and uneven from the start, then wider, fainter and more broken up.
+  const SMOKE_AGES = [
+    { spread: 1.5, strength: 0.8, rough: 0.62, drift: 0.9 },
+    { spread: 2.1, strength: 0.68, rough: 0.74, drift: 1.4 },
+    { spread: 2.8, strength: 0.52, rough: 0.84, drift: 2 },
+  ];
+  function drawSmoke(putA, frameW, h, scale, colour, width) {
+    for (let f = 0; f < 3; f++) {
+      const age = SMOKE_AGES[f];
+      const big = valueNoise(101 + f * 17, 9), fine = valueNoise(211 + f * 31, 29), sway = valueNoise(307 + f * 13, 5), wisp = valueNoise(401 + f * 19, 41);
+      const sigma = Math.max(0.9, width * 0.5 * age.spread) * scale;
+      const left = frameW * f, right = frameW * (f + 1);
+      for (let y = 0; y < h; y++) {
+        const t = y / h;
+        const body = 1 - age.rough + age.rough * (0.65 * big(t) + 0.35 * fine(t));
+        const cx = left + frameW / 2 + ((sway(t) - 0.5) * 2 * age.drift + (wisp(t) - 0.5) * 0.9) * scale;
+        for (let x = Math.max(left, Math.floor(cx - sigma * 3)); x < Math.min(right, Math.ceil(cx + sigma * 3)); x++) {
+          const d = (x + 0.5 - cx) / sigma;
+          const alpha = 255 * age.strength * body * Math.exp(-d * d);
+          if (alpha >= 8) putA(x, y, colour, Math.round(alpha));
+        }
+      }
+    }
+  }
+
   // The tracer sheet is 4 frames side by side: frames 0-2 animate the smoke trail, frame 3 is the beam.
   function drawTracerSheet(w, h, opts) {
     const px = new Uint8Array(w * h * 4);
     const frameW = w / 4;
     const scale = w / 128;
-    const put = (x, y, rgb) => {
+    const putA = (x, y, rgb, a) => {
       if (x < 0 || x >= w) return;
       const i = (y * w + x) * 4;
-      px[i] = rgb[0]; px[i + 1] = rgb[1]; px[i + 2] = rgb[2]; px[i + 3] = 255;
+      if (a < px[i + 3]) return;
+      px[i] = rgb[0]; px[i + 1] = rgb[1]; px[i + 2] = rgb[2]; px[i + 3] = a;
     };
+    const put = (x, y, rgb) => putA(x, y, rgb, 255);
     const beam = opts.beam || {};
     const style = beam.style || 'solid';
     if (style !== 'none') {
@@ -544,7 +584,8 @@
       const width = Math.max(1, Math.round((beam.width || 3) * scale));
       const centre = Math.floor(frameW * 3 + frameW / 2 - 1);
       const x0 = centre - Math.floor((width - 1) / 2);
-      const coreW = Math.max(1, Math.round(width / 3));
+      // a thin core: a wide white centre washes the whole beam out to white in game
+      const coreW = width <= 5 ? 1 : Math.round(width / 4);
       const coreX0 = x0 + Math.floor((width - coreW) / 2);
       const lineW = Math.max(1, Math.floor(width / 3));
       for (let y = 0; y < h; y++) {
@@ -556,13 +597,15 @@
       }
     }
     const smoke = opts.smoke || {};
-    if (smoke.mode === 'line' || smoke.mode === 'wavy') {
+    if (smoke.mode === 'line') {
+      drawSmoke(putA, frameW, h, scale, hexRgb(smoke.colour), smoke.width || 3);
+    } else if (smoke.mode === 'wavy') {
       const colour = hexRgb(smoke.colour);
       const width = Math.max(1, Math.round((smoke.width || 3) * scale));
       for (let f = 0; f < 3; f++) {
         const centre = Math.floor(frameW * f + frameW / 2 - 1);
         for (let y = 0; y < h; y++) {
-          const wave = smoke.mode === 'wavy' ? Math.round(Math.sin((y / h) * Math.PI * 6 + f * 2.1) * 3 * scale) : 0;
+          const wave = Math.round(Math.sin((y / h) * Math.PI * 6 + f * 2.1) * 3 * scale);
           const x0 = centre - Math.floor((width - 1) / 2) + wave;
           for (let x = x0; x < x0 + width; x++) put(x, y, colour);
         }
@@ -699,6 +742,22 @@
     d.setUint16(o + 8, c0, true); d.setUint16(o + 10, c1, true); d.setUint32(o + 12, bits, true);
   }
 
+  // DXT1 only has on/off alpha, so soft pixels are dithered with a 4x4 Bayer pattern. Smaller mip levels get a
+  // boost so thin lines stay solid at a distance.
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const DXT1_BOOST = 1.6;
+  function ditherAlpha(img, boost) {
+    const px = img.px.slice();
+    for (let y = 0; y < img.h; y++) {
+      for (let x = 0; x < img.w; x++) {
+        const i = (y * img.w + x) * 4 + 3;
+        if (px[i] === 0 || px[i] === 255) continue;
+        px[i] = Math.min(255, px[i] * boost) > (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) * 16 ? 255 : 0;
+      }
+    }
+    return { px, w: img.w, h: img.h };
+  }
+
   // Encodes a full mip chain laid out the way the resource stores it (each level stride*height/4^n bytes).
   function encodeTexture(tex, format, opts) {
     const out = new Uint8Array(tex.dataLength);
@@ -714,9 +773,10 @@
         const bsize = format === FMT.DXT1 ? 8 : 16;
         const bw = Math.max(1, Math.ceil(img.w / 4)), bh = Math.max(1, Math.ceil(img.h / 4));
         const tmp = new Uint8Array(bw * bh * bsize);
+        const src = format === FMT.DXT1 ? ditherAlpha(img, level ? DXT1_BOOST * 1.4 : DXT1_BOOST) : img;
         for (let by = 0; by < bh; by++) {
           for (let bx = 0; bx < bw; bx++) {
-            const pixels = blockPixels(img, bx, by);
+            const pixels = blockPixels(src, bx, by);
             const o = (by * bw + bx) * bsize;
             if (format === FMT.DXT1) encodeDXT1(pixels, tmp, o); else encodeDXT5(pixels, tmp, o);
           }
@@ -1046,6 +1106,6 @@
   return {
     setZlib, joaat, readRpf, writeRpf, listFiles, readBinary, pageSize, openResource, packResource,
     Ypt, readTracer, applyTracer, drawTracerSheet, encodeTexture, decodeTexture, textureTarget, openPack, savePack,
-    FMT, FMT_NAME, argb, BloodDat, WEAPONS, BLOOD_COLUMNS, INFO: { T_TINT, T_SIZES, T_FX, T_EVO },
+    FMT, FMT_NAME, argb, BloodDat, WEAPONS, BLOOD_COLUMNS, INFO: { T_TINT, T_SIZES, T_FX, T_EVO }, DXT1_BOOST,
   };
 });
