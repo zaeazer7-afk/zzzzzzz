@@ -11,7 +11,7 @@ Load a tracer pack (`.rpf`, such as `bluetrace.rpf` or `TRacer.rpf`) or a loose 
 | Control | What it changes in `core.ypt` |
 | --- | --- |
 | Look, colour, width | Redraws the tracer sheet `ptfx_bullet_tracer`. Frame 3 of its four frames is the beam: none (smoke only), solid, neon (thin white core) or twin lines. The beam particle colour and emitter tint are set to white so the drawn colour shows as picked. |
-| Smoke trail | Frames 0–2 of the same sheet. The game plays them in order over the smoke's life. Straight draws soft smoke that widens, fades and breaks up from frame to frame; wavy draws a hard wavy line. |
+| Smoke trail | Frames 0–2 of the same sheet. The game plays them in order over the smoke's life. Straight draws a crisp line with a ragged edge that changes from frame to frame, like the pink tracers pack; wavy draws a wavy line. |
 | Keep pack's | Leaves the sheet alone. Tint multiplies the pack's own colours instead. |
 | Glow | Emissive intensity of the `bullet_tracer` particle (stock 15–16). |
 | Thickness | Zoom scalar of the tracer emitter (stock 1). |

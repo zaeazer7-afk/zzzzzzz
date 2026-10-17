@@ -89,19 +89,16 @@ for (const file of ypts) {
   const t2 = core.readTracer(y2);
   const px2 = core.decodeTexture(y2, t2.texture);
   const want2 = core.drawTracerSheet(t2.texture.width, t2.texture.height, smokeOnly);
-  const dxt1 = t2.texture.format === core.FMT.DXT1;
-  let beamPixels = 0, alphaErr = 0, covered = 0, wanted = 0;
+  let beamPixels = 0, mismatch = 0, soft = 0;
   for (let i = 0; i < want2.length; i += 4) {
     const x = (i / 4) % t2.texture.width;
     if (x >= t2.texture.width * 3 / 4 && px2[i + 3] > 0) beamPixels++;
-    // DXT1 dithers soft alpha, so about alpha/255 of those pixels end up drawn
-    if (want2[i + 3] > 0) wanted += dxt1 ? Math.min(255, want2[i + 3] * core.DXT1_BOOST) / 255 : 1;
-    if (px2[i + 3] > 0) covered++;
-    if (!dxt1) alphaErr = Math.max(alphaErr, Math.abs(want2[i + 3] - px2[i + 3]));
+    if ((want2[i + 3] > 0) !== (px2[i + 3] > 0)) mismatch++;
+    if (want2[i + 3] > 0 && want2[i + 3] < 255) soft++;
   }
   if (beamPixels) fail(`${label}: beam frame should be empty for smoke only (${beamPixels} pixels)`);
-  if (alphaErr > 40) fail(`${label}: soft smoke alpha off by ${alphaErr}`);
-  if (Math.abs(covered - wanted) > wanted * 0.35) fail(`${label}: smoke coverage ${covered} vs ${Math.round(wanted)}`);
+  if (mismatch) fail(`${label}: ${mismatch} smoke pixels differ from the drawing`);
+  if (soft) fail(`${label}: smoke should be crisp, found ${soft} see-through pixels`);
 }
 
 // Nested RPF round trip, shaped like the FiveM mods-folder packs
