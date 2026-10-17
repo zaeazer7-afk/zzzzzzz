@@ -47,3 +47,7 @@ Each `fxmanifest.lua` also has two commented-out lines that try to load `bloodfx
 - **Check the pack loads.** Join, shoot something, and confirm the tracers and effects look like the pack.
 - **Watch the server console.** FiveM may warn that `core.ypt` is an oversized asset. If it does, test with a few players before using the pack live.
 - **If nothing changes,** FiveM didn't swap the file for your server. Players can still install the original RPF in their own FiveM mods folder.
+
+## Make your own
+
+[BloodFX Maker](../bloodfx-maker/README.md) builds a custom tracer pack and `bloodfx.dat` from any of these packs, for players to put in their own FiveM mods folder.
