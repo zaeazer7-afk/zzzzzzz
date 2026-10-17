@@ -266,6 +266,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
             <span class="label" id="lbl-style">Look</span>
             <div class="seg" id="style" role="group" aria-labelledby="lbl-style">
               <button type="button" data-v="keep">Keep pack's</button>
+              <button type="button" data-v="recolour">Recolour pack's</button>
               <button type="button" data-v="none">None</button>
               <button type="button" data-v="solid">Solid</button>
               <button type="button" data-v="neon">Neon</button>
@@ -289,6 +290,8 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
             <div class="colour"><label class="check"><input type="checkbox" id="tint-on"> Tint</label><input type="color" id="tint" value="#ffffff" aria-label="Tint colour"></div>
           </div>
           <p class="hint" id="keep-hint" hidden>Keeping the pack's look leaves its tracer texture alone. Speed, glow and size below still apply.</p>
+          <p class="hint" id="recolour-hint" hidden>Recolouring keeps the pack's own shapes exactly and only changes their colour.</p>
+          <p class="note" id="bc7-note" hidden></p>
           <p class="hint" id="none-hint" hidden>No beam: only the smoke trail shows, from the first moment, like the pink tracers pack.</p>
           <p class="note" id="nothing-note" hidden>With no beam and no smoke trail, nothing shows. Pick a smoke trail below.</p>
         </div>
@@ -298,6 +301,8 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
           <div class="row">
             <span class="label" id="lbl-smoke">Trail</span>
             <div class="seg" id="smoke" role="group" aria-labelledby="lbl-smoke">
+              <button type="button" data-v="keep">Keep pack's</button>
+              <button type="button" data-v="recolour">Recolour pack's</button>
               <button type="button" data-v="off">Off</button>
               <button type="button" data-v="line">Straight</button>
               <button type="button" data-v="wavy">Wavy</button>
@@ -570,24 +575,42 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
       showOut(k, t[k]);
       document.getElementById(k + '-out').classList.toggle('changed', state.touched.has(k));
     }
-    const keep = t.style === 'keep', none = t.style === 'none';
+    // A BC7 sheet can be kept whole or redrawn, but not kept or recoloured in part.
+    const whole = state.pack && !state.pack.recolourable;
+    if (whole) {
+      if (t.style === 'recolour') t.style = 'keep';
+      if (t.style === 'keep') t.smoke = 'keep';
+      else if (t.smoke === 'keep' || t.smoke === 'recolour') t.smoke = 'off';
+      setSeg('style', t.style); setSeg('smoke', t.smoke);
+    }
+    for (const id of ['style', 'smoke']) {
+      for (const b of $$('#' + id + ' button')) {
+        b.disabled = !!whole && (b.dataset.v === 'recolour' || (id === 'smoke' && b.dataset.v === 'keep'));
+      }
+    }
+    $('#bc7-note').hidden = !whole;
+    if (whole) $('#bc7-note').textContent = `${state.pack.fileName} stores its tracer texture as ${state.pack.texture.format}, so it can be kept as a whole or redrawn, but not recoloured.`;
+    const keep = t.style === 'keep', none = t.style === 'none', recolour = t.style === 'recolour';
+    const drawnSmoke = t.smoke === 'line' || t.smoke === 'wavy';
     $('#row-colour').hidden = keep || none;
     $('#row-core').hidden = t.style !== 'neon';
-    $('#row-width').hidden = keep || none;
+    $('#row-width').hidden = keep || none || recolour;
     $('#none-hint').hidden = !none;
     $('#nothing-note').hidden = !(none && t.smoke === 'off');
-    $('#row-tint').hidden = !keep;
+    $('#row-tint').hidden = !(keep && t.smoke === 'keep');
     $('#keep-hint').hidden = !keep;
-    $('#smoke-group').hidden = keep;
-    $('#row-smoke-colour').hidden = t.smoke === 'off';
-    $('#row-smoke-width').hidden = t.smoke === 'off';
+    $('#recolour-hint').hidden = !(recolour || t.smoke === 'recolour');
+    $('#smoke-group').hidden = !!whole && keep;
+    $('#row-smoke-colour').hidden = !(drawnSmoke || t.smoke === 'recolour');
+    $('#row-smoke-width').hidden = !drawnSmoke;
     refreshSheet();
     renderReadout();
     renderIncludes();
   }
 
-  bindSeg('style', (v) => { state.tracer.style = v; syncTracerUI(); fireSoon(); });
-  bindSeg('smoke', (v) => { state.tracer.smoke = v; syncTracerUI(); fireSoon(); });
+  let lookTouched = false;
+  bindSeg('style', (v) => { state.tracer.style = v; lookTouched = true; syncTracerUI(); fireSoon(); });
+  bindSeg('smoke', (v) => { state.tracer.smoke = v; lookTouched = true; syncTracerUI(); fireSoon(); });
   bindColour('colour', (v) => { state.tracer.colour = v; refreshSheet(); renderReadout(); });
   bindColour('core', (v) => { state.tracer.core = v; refreshSheet(); });
   bindColour('smoke-colour', (v) => { state.tracer.smokeColour = v; refreshSheet(); });
@@ -618,6 +641,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
   });
 
   const TRACER_PRESETS = [
+    { name: 'Recolour pack smoke', sw: '#ffc21f', set: { style: 'keep', smoke: 'recolour', smokeColour: '#ffc21f' } },
     { name: 'Smoke trail', sw: '#ffffff', set: { style: 'none', smoke: 'line', smokeColour: '#ffffff', smokeWidth: 3, glow: 15, zoom: 1, far: 200, speed: 1, stay: 0.6, life: 0.07 } },
     { name: 'Gold smoke', sw: '#ffc21f', set: { style: 'none', smoke: 'line', smokeColour: '#ffc21f', smokeWidth: 4, glow: 15, zoom: 1, far: 200, speed: 1, stay: 0.6, life: 0.07 } },
     { name: 'Slow beam', sw: '#39e6ff', set: { style: 'solid', colour: '#39e6ff', width: 3, smoke: 'off', glow: 20, zoom: 1.6, far: 500, speed: 0.5, stay: 1, life: 0.09 } },
@@ -635,6 +659,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
     b.append(p.name);
     b.addEventListener('click', () => {
       Object.assign(state.tracer, p.set);
+      lookTouched = true;
       for (const k of MOTION) if (k in p.set) state.touched.add(k);
       syncTracerUI();
       fireSoon();
@@ -666,7 +691,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
       const effects = new Set(y.effectRules().keys());
       let preview = null;
       if (tr.texture) preview = C.decodeTexture(y, tr.texture);
-      state.pack = { fileName: file.name, bytes, kind: pack.kind, paths: pack.paths || [], tracer: tr, effects, preview,
+      state.pack = { fileName: file.name, bytes, kind: pack.kind, paths: pack.paths || [], tracer: tr, effects, preview, recolourable: C.canRecolour(tr.texture),
                      texture: tr.texture ? { w: tr.texture.width, h: tr.texture.height, format: tr.texture.formatName, levels: tr.texture.levels } : null };
       const v = {
         glow: tr.beamColour && tr.beamColour.emissive[0] ? tr.beamColour.emissive[0].v[0] : STOCK.glow,
@@ -680,6 +705,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
       state.packValues = v;
       Object.assign(state.tracer, v);
       state.touched.clear();
+      if (!lookTouched) { state.tracer.style = 'keep'; state.tracer.smoke = 'keep'; }
       renderPackInfo();
       syncTracerUI();
       renderBlood();
@@ -725,14 +751,14 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
 
   function tracerSettings() {
     const t = state.tracer, s = {};
-    if (t.style !== 'keep') {
+    if (t.style === 'keep' && t.smoke === 'keep') {
+      if (t.tintOn) s.beamRgb = rgbOf(t.tint).map((c) => c / 255);
+    } else {
       s.texture = { beam: { style: t.style, colour: t.colour, core: t.core, width: t.width },
                     smoke: { mode: t.smoke, colour: t.smokeColour, width: t.smokeWidth } };
-      s.beamRgb = [1, 1, 1];
-      s.tint = '#ffffff';
-      if (t.smoke !== 'off') { s.smokeRgb = [1, 1, 1]; s.smokeTint = '#ffffff'; }
-    } else if (t.tintOn) {
-      s.beamRgb = rgbOf(t.tint).map((c) => c / 255);
+      // a new or recoloured beam shows its colour as picked; a recoloured smoke keeps the pack's own particle colour
+      if (t.style !== 'keep') { s.beamRgb = [1, 1, 1]; s.tint = '#ffffff'; }
+      if (t.smoke === 'line' || t.smoke === 'wavy') { s.smokeRgb = [1, 1, 1]; s.smokeTint = '#ffffff'; }
     }
     const T = state.touched;
     if (T.has('glow')) s.glow = t.glow;
@@ -1032,6 +1058,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
     };
     if (t.style === 'keep') add('beam', state.pack ? 'pack texture' : 'stock look', t.tintOn ? t.tint : null);
     else if (t.style === 'none') add('beam', 'none, smoke only');
+    else if (t.style === 'recolour') add('beam', 'pack, recoloured ' + t.colour.toUpperCase(), t.colour);
     else add('beam', `${t.style} ${t.width}px ${t.colour.toUpperCase()}`, t.colour);
     add('glow', t.glow.toFixed(0));
     add('speed', '×' + t.speed.toFixed(2));
@@ -1063,17 +1090,17 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
   function refreshSheet() {
     const t = state.tracer;
     let px;
-    if (t.style === 'keep') {
-      if (state.pack && state.pack.preview && state.pack.texture.w === 128 && state.pack.texture.h === 256) px = state.pack.preview;
-      else px = C.drawTracerSheet(128, 256, { beam: { style: 'solid', colour: '#ffb070', width: 3 }, smoke: { mode: 'off' } });
+    const original = state.pack && state.pack.preview && state.pack.texture.w === 128 && state.pack.texture.h === 256 ? state.pack.preview : null;
+    if (t.style === 'keep' && t.smoke === 'keep') {
+      px = original || C.drawTracerSheet(128, 256, { beam: { style: 'solid', colour: '#ffb070', width: 3 }, smoke: { mode: 'off' } });
       if (t.tintOn) {
         px = px.slice();
         const tint = rgbOf(t.tint);
         for (let i = 0; i < px.length; i += 4) for (let c = 0; c < 3; c++) px[i + c] = (px[i + c] * tint[c]) / 255;
       }
     } else {
-      px = C.drawTracerSheet(128, 256, { beam: { style: t.style, colour: t.colour, core: t.core, width: t.width },
-                                         smoke: { mode: t.smoke, colour: t.smokeColour, width: t.smokeWidth } });
+      px = C.composeSheet(original, 128, 256, { beam: { style: t.style, colour: t.colour, core: t.core, width: t.width },
+                                                smoke: { mode: t.smoke, colour: t.smokeColour, width: t.smokeWidth } });
     }
     const img = sctx.createImageData(128, 256);
     img.data.set(px);
@@ -1158,7 +1185,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
     const to = zone === 'head' ? [d.x - d.r * 0.4, d.headY] : [d.x - d.w * 0.3, (d.top + d.bottom) * 0.42];
     const t = state.tracer;
     const travel = Math.max(0.05, 0.14 / speedNow());
-    shots.push({ born: performance.now() / 1000, from: MUZZLE(), to, zone, travel, linger: Math.min(3, t.stay / speedNow()), hit: false, smoke: t.style !== 'keep' && t.smoke !== 'off' });
+    shots.push({ born: performance.now() / 1000, from: MUZZLE(), to, zone, travel, linger: Math.min(3, t.stay / speedNow()), hit: false, smoke: t.smoke !== 'off' });
     if (shots.length > 6) shots.shift();
   }
 
@@ -1342,7 +1369,7 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
     const d = DUMMY();
     const now = 100;
     shots.length = 0; parts.length = 0;
-    shots.push({ born: now - 0.1, from: MUZZLE(), to: [d.x - d.r * 0.4, d.headY], zone: 'head', travel: 0.2, linger: 1, hit: true, smoke: state.tracer.style !== 'keep' && state.tracer.smoke !== 'off' });
+    shots.push({ born: now - 0.1, from: MUZZLE(), to: [d.x - d.r * 0.4, d.headY], zone: 'head', travel: 0.2, linger: 1, hit: true, smoke: state.tracer.smoke !== 'off' });
     drawShots(ctx, now);
     shots.length = 0;
   }
@@ -1419,7 +1446,9 @@ textarea.fallback { width: 100%; min-height: 9rem; font-family: var(--font-mono)
       lines.push('  Copy it to %localappdata%\\FiveM\\FiveM.app\\mods');
       lines.push('  Remove the old copy of the same pack. Keep only one tracer pack in that folder.');
       const s = tracerSettings();
-      lines.push('  Look: ' + (t.style === 'keep' ? 'pack texture kept' : `${t.style}, ${t.width}px, ${t.colour.toUpperCase()}` + (t.style === 'neon' ? `, core ${t.core.toUpperCase()}` : '') + `, smoke ${t.smoke}`));
+      const beamLook = { keep: 'pack beam kept', recolour: 'pack beam recoloured ' + t.colour.toUpperCase(), none: 'no beam' }[t.style] || `${t.style} beam, ${t.width}px, ${t.colour.toUpperCase()}` + (t.style === 'neon' ? `, core ${t.core.toUpperCase()}` : '');
+      const smokeLook = { keep: 'pack smoke kept', recolour: 'pack smoke recoloured ' + t.smokeColour.toUpperCase(), off: 'no smoke' }[t.smoke] || `${t.smoke === 'line' ? 'straight' : 'wavy'} smoke, ${t.smokeColour.toUpperCase()}`;
+      lines.push('  Look: ' + beamLook + '; ' + smokeLook);
       const changed = [];
       if (s.glow !== undefined) changed.push('glow ' + s.glow);
       if (s.zoom) changed.push('thickness x' + s.zoom[0]);

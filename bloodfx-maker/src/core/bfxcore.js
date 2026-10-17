@@ -767,12 +767,142 @@
     return 0;
   }
 
+  // ---------------------------------------------------------------- keeping or recolouring the pack's own sheet
+
+  // Beam and smoke modes that start from the pack's own pixels instead of drawing new ones.
+  const FROM_PACK = new Set(['keep', 'recolour']);
+  const canRecolour = (tex) => !!tex && (tex.format === FMT.DXT1 || tex.format === FMT.DXT5);
+
+  // Keeps each pixel's brightness: the brightest pixel of the region (ref) becomes exactly `rgb`.
+  function tintRgb(c, rgb, ref) {
+    const k = ref > 0 ? Math.min(1, (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / ref) : 1;
+    return [Math.round(rgb[0] * k), Math.round(rgb[1] * k), Math.round(rgb[2] * k)];
+  }
+
+  // Which part of the sheet a block (or pixel column range) covers at a given level width.
+  function regionOf(x0, x1, w) {
+    const f0 = Math.floor((x0 * 4) / w), f1 = Math.floor((Math.min(x1, w - 1) * 4) / w);
+    if (f0 >= 3) return 'beam';
+    if (f1 <= 2) return 'smoke';
+    return 'mixed';
+  }
+
+  // Brightest pixel in each part of the top level, used as the recolour reference.
+  function sheetRefs(px, w, h) {
+    const refs = { smoke: 0, beam: 0 };
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (!px[i + 3]) continue;
+        const l = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+        const r = regionOf(x, x, w);
+        if (l > refs[r]) refs[r] = l;
+      }
+    }
+    return refs;
+  }
+
+  // Swaps the two colour endpoints of a block and fixes its indices so every pixel keeps its colour.
+  function swapEndpoints(bits, fourColour) {
+    let out = 0;
+    for (let i = 0; i < 16; i++) {
+      let v = (bits >>> (i * 2)) & 3;
+      if (v < 2) v ^= 1;
+      else if (fourColour) v ^= 1;
+      out = (out | (v << (i * 2))) >>> 0;
+    }
+    return out;
+  }
+
+  // Recolours one DXT1 or DXT5 block in place. Only the two colour endpoints change, so the shape and the
+  // transparency stay exactly as they were.
+  function recolourBlock(buf, o, dxt5, rgb, ref) {
+    const d = dv(buf);
+    const co = dxt5 ? o + 8 : o;
+    const c0 = d.getUint16(co, true), c1 = d.getUint16(co + 2, true);
+    let bits = d.getUint32(co + 4, true);
+    const fourColour = dxt5 || c0 > c1;
+    let n0 = to565(tintRgb(from565(c0), rgb, ref)), n1 = to565(tintRgb(from565(c1), rgb, ref));
+    if (fourColour) {
+      if (n0 < n1) { [n0, n1] = [n1, n0]; bits = swapEndpoints(bits, true); }
+      if (!dxt5 && n0 === n1) { if (n0 > 0) n1 = n0 - 1; else n0 = 1; }
+    } else if (n0 > n1) {
+      [n0, n1] = [n1, n0]; bits = swapEndpoints(bits, false);
+    }
+    d.setUint16(co, n0, true); d.setUint16(co + 2, n1, true); d.setUint32(co + 4, bits, true);
+  }
+
   function writeTracerTexture(y, tex, opts) {
-    const target = textureTarget(tex);
+    const beam = opts.beam || {}, smoke = opts.smoke || {};
+    const beamMode = beam.style || 'solid', smokeMode = smoke.mode || 'off';
+    if (beamMode === 'keep' && smokeMode === 'keep') return;
+    const fromPack = FROM_PACK.has(beamMode) || FROM_PACK.has(smokeMode);
+    if (fromPack && !canRecolour(tex)) {
+      throw new Error(`This pack stores its tracer texture as ${tex.formatName}, so the maker can't keep or recolour part of it. Pick a drawn beam and smoke instead.`);
+    }
+    const target = fromPack ? tex.format : textureTarget(tex);
     if (!target) throw new Error(`The tracer texture uses ${tex.formatName}, which the maker can't redraw`);
-    const data = encodeTexture(tex, target, opts);
-    y.u8.set(data, tex.data);
-    if (target !== tex.format) y.setU32(tex.off + 0x58, target);
+    const drawnOpts = {
+      beam: FROM_PACK.has(beamMode) ? { style: 'none' } : beam,
+      smoke: FROM_PACK.has(smokeMode) ? { mode: 'off' } : smoke,
+    };
+    const drawn = encodeTexture(tex, target, drawnOpts);
+    if (!fromPack) {
+      y.u8.set(drawn, tex.data);
+      if (target !== tex.format) y.setU32(tex.off + 0x58, target);
+      return;
+    }
+    const original = y.u8.slice(tex.data, tex.data + tex.dataLength);
+    const refs = sheetRefs(decodeTexture(y, tex), tex.width, tex.height);
+    const dxt5 = tex.format === FMT.DXT5, bsize = dxt5 ? 16 : 8;
+    const out = new Uint8Array(tex.dataLength);
+    let pos = 0, len = tex.stride * tex.height, w = tex.width, h = tex.height;
+    for (let level = 0; level < tex.levels && pos < out.length; level++) {
+      const bw = Math.max(1, Math.ceil(w / 4)), bh = Math.max(1, Math.ceil(h / 4));
+      for (let by = 0; by < bh; by++) {
+        for (let bx = 0; bx < bw; bx++) {
+          const o = pos + (by * bw + bx) * bsize;
+          if (o + bsize > out.length) continue;
+          const region = regionOf(bx * 4, bx * 4 + 3, w);
+          const mode = region === 'beam' ? beamMode : region === 'smoke' ? smokeMode : FROM_PACK.has(smokeMode) ? smokeMode : beamMode;
+          if (!FROM_PACK.has(mode)) { out.set(drawn.subarray(o, o + bsize), o); continue; }
+          out.set(original.subarray(o, o + bsize), o);
+          if (mode === 'recolour') {
+            const smokePart = region === 'smoke' || (region === 'mixed' && FROM_PACK.has(smokeMode));
+            recolourBlock(out, o, dxt5, hexRgb(smokePart ? smoke.colour : beam.colour), smokePart ? refs.smoke : refs.beam);
+          }
+        }
+      }
+      pos += len;
+      len = Math.floor(len / 4);
+      w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
+    }
+    y.u8.set(out, tex.data);
+  }
+
+  // What the sheet will look like, for previews: the pack's own pixels (kept or recoloured) where a mode starts
+  // from the pack, freshly drawn pixels elsewhere. `original` may be null when no pack is loaded.
+  function composeSheet(original, w, h, opts) {
+    const beam = opts.beam || {}, smoke = opts.smoke || {};
+    const drawn = drawTracerSheet(w, h, {
+      beam: FROM_PACK.has(beam.style) ? { style: 'none' } : beam,
+      smoke: FROM_PACK.has(smoke.mode) ? { mode: 'off' } : smoke,
+    });
+    if (!original) return drawn;
+    const refs = sheetRefs(original, w, h);
+    const beamRgb = hexRgb(beam.colour), smokeRgb = hexRgb(smoke.colour);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const region = regionOf(x, x, w);
+        const mode = region === 'beam' ? beam.style : smoke.mode;
+        if (!FROM_PACK.has(mode)) continue;
+        const i = (y * w + x) * 4;
+        const c = [original[i], original[i + 1], original[i + 2]];
+        const out = mode === 'recolour' ? tintRgb(c, region === 'beam' ? beamRgb : smokeRgb, refs[region]) : c;
+        drawn[i] = out[0]; drawn[i + 1] = out[1]; drawn[i + 2] = out[2]; drawn[i + 3] = original[i + 3];
+      }
+    }
+    return drawn;
   }
 
   // Decodes a DXT1/DXT5/A8R8G8B8 texture's top level to RGBA for previews. Returns null for other formats.
@@ -1073,7 +1203,7 @@
 
   return {
     setZlib, joaat, readRpf, writeRpf, listFiles, readBinary, pageSize, openResource, packResource,
-    Ypt, readTracer, applyTracer, drawTracerSheet, encodeTexture, decodeTexture, textureTarget, openPack, savePack,
+    Ypt, readTracer, applyTracer, drawTracerSheet, composeSheet, canRecolour, encodeTexture, decodeTexture, textureTarget, openPack, savePack,
     FMT, FMT_NAME, argb, BloodDat, WEAPONS, BLOOD_COLUMNS, INFO: { T_TINT, T_SIZES, T_FX, T_EVO },
   };
 });
