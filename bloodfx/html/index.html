@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BloodFX Studio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="screen-fx" aria-hidden="true"></canvas>
+  <div id="low-health" aria-hidden="true"></div>
+
+  <aside id="studio" class="studio is-hidden" aria-label="BloodFX Studio">
+    <header class="studio-head">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <defs>
+            <linearGradient id="drop-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="var(--accent)" stop-opacity="0.95"/>
+              <stop offset="1" stop-color="var(--accent)" stop-opacity="0.55"/>
+            </linearGradient>
+          </defs>
+          <path fill="url(#drop-grad)" d="M16 3c4.7 6.4 9.2 11.8 9.2 16.7a9.2 9.2 0 0 1-18.4 0C6.8 14.8 11.3 9.4 16 3z"/>
+          <path fill="rgba(255,255,255,0.35)" d="M12.4 17.6c.4-2 1.6-4 3-5.9-.6 2.4-.8 4.3-.4 6.4-.9.6-2 .3-2.6-.5z"/>
+        </svg>
+        <div>
+          <h1>BloodFX <span>Studio</span></h1>
+          <p id="version" class="version"></p>
+        </div>
+      </div>
+      <div class="head-actions">
+        <button id="btn-detach" class="icon-btn" type="button" title="Play with the panel visible" data-icon="detach"></button>
+        <button id="btn-close" class="icon-btn" type="button" title="Close (Esc)" data-icon="close"></button>
+      </div>
+    </header>
+
+    <p id="lock-banner" class="banner is-hidden">Your server manages these settings. The test buttons still work.</p>
+
+    <div class="preview">
+      <canvas id="preview"></canvas>
+      <span id="preview-hex" class="preview-hex"></span>
+      <button id="btn-reroll" class="icon-btn small" type="button" title="New splatter" data-icon="reroll"></button>
+    </div>
+
+    <nav id="tabs" class="tabs" role="tablist"></nav>
+    <section id="panels" class="panels"></section>
+
+    <footer class="studio-foot">
+      <div class="tests">
+        <button class="test" type="button" data-test="hit" data-icon="target"><span>Test hit</span></button>
+        <button class="test" type="button" data-test="kill" data-icon="burst"><span>Kill burst</span></button>
+        <button class="test" type="button" data-test="pool" data-icon="pools"><span>Pool</span></button>
+        <button class="test" type="button" data-test="screen" data-icon="screen"><span>Screen</span></button>
+        <button class="test" type="button" data-test="dummy" data-icon="dummy"><span>Dummy</span></button>
+        <button class="test" type="button" data-test="clean" data-icon="clean"><span>Clean up</span></button>
+      </div>
+      <button id="btn-painter" class="btn painter is-hidden" type="button" data-icon="brush"><span>Crime-scene painter</span></button>
+    </footer>
+
+    <p class="detached-hint">Press <kbd id="key-hint">/bloodfx</kbd> to edit</p>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </aside>
+
+  <script src="splat.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
