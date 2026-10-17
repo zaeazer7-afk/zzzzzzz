@@ -10,8 +10,9 @@ No streamed assets and no framework dependency. Every particle effect, decal typ
 
 ## Features
 
-- **Hit effects.** Extra entry and exit wounds, headshot bursts and kill bursts. Six styles run from subtle to cinematic gore, plus a decals-only mode.
+- **Hit effects.** Extra entry and exit wounds, headshot bursts and kill bursts. Sixteen styles run from subtle blood to cinematic gore, confetti, gumballs, cash, water and oil, plus a decals-only mode.
 - **Any colour.** Decals and screen blood use your colour, and rainbow mode cycles through every hue. Particle tint works on the effects that accept one (see [Limits](#notes-and-limits)).
+- **Game blood.** Each player can switch the game's own blood to its built-in clown or alien variant, which swaps every blood hit for a colourful burst.
 - **Splatter.** Blood sprays onto the wall or floor behind the target and drips on the ground. Explosions and rotor blades throw it in every direction.
 - **Death pools** spread under bodies, and **bleeding trails** follow wounded peds.
 - **Screen blood** when you are hit, with a low-health pulse and optional camera shake.
@@ -19,6 +20,7 @@ No streamed assets and no framework dependency. Every particle effect, decal typ
 - **BloodFX Studio** (`/bloodfx`). Presets, a colour picker, live sliders, test buttons, a test dummy and share codes.
 - **Crime-scene painter** (`/bloodpaint`). Place splatters, pools, sprays, mist and drops where you aim. Painted blood is synced to everyone, saved across restarts and permission-gated.
 - **Budgets.** Decals and particles are capped per second and in total, so big fights stay smooth.
+- **Pack resources.** Twelve tracer and confetti packs are converted into server resources in [`[bloodfx-packs]`](../%5Bbloodfx-packs%5D/README.md).
 
 ## Installation
 
@@ -62,7 +64,7 @@ A see-through preview shows exactly what will be placed.
 
 ![Studio tabs](docs/tabs.jpg)
 
-- **Look.** Presets, blood colour, rainbow mode, particle tint and decal opacity.
+- **Look.** Presets, blood colour, rainbow mode, particle tint, decal opacity and game blood.
 - **Hits.** Effect style, whose hits you see, particle size, headshot boost, kill burst and splashback.
 - **Splatter.** Wall spray, ground drops, chance, size, reach and how long decals last.
 - **Pools.** Death pools, spread time, bleeding trails and the health level where bleeding starts.
@@ -116,6 +118,10 @@ Config.IsPedDowned = function(ped)
 end
 ```
 
+### Tracer and confetti packs
+
+The [`[bloodfx-packs]`](../%5Bbloodfx-packs%5D/README.md) folder holds twelve packs converted into resources. Each streams its pack's particle file to every player, which brings the pack's tracers and effect styling. Run one at a time next to bloodfx. Every pack's hit behaviour is also a studio style, so players can match the pack or pick something else.
+
 ### Adding your own effects
 
 A style is a list of particle layers:
@@ -163,6 +169,7 @@ Scene types are `splatter`, `pool`, `spray`, `mist` and `drops`. They are define
 - **Particle tint.** GTA only lets scripts recolour some particle effects, so tinted blood shows best with bright colours. Effects that ignore the tint stay dark red, while decals and screen blood always follow your colour. Fully recoloured particles need an edited particle pack (`.ypt`), which this resource does not ship.
 - **Per player.** Hit effects are drawn on each player's own client, so everyone sees their own colour and style. Painted crime scenes look the same for everyone.
 - **Range.** Your client shows effects for the damage events it receives, within `Config.Performance.effectRange`.
+- **Game blood.** The clown and alien blood switches are built-in game natives. They need an in-game test on your server's game build.
 - **Collision.** Decals only stick to loaded collision, so painted blood is drawn within `Config.Scenes.streamDistance`.
 
 ## Troubleshooting

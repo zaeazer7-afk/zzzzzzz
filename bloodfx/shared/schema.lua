@@ -20,6 +20,12 @@ local SCOPES = {
     { value = 'mine', label = 'Only hits I land' },
 }
 
+local NATIVE_BLOOD = {
+    { value = 'normal', label = 'Normal' },
+    { value = 'clown', label = 'Clown' },
+    { value = 'alien', label = 'Alien' },
+}
+
 -- `preset = true` marks the "look" fields that a preset resets before applying its own values.
 Schema.fields = {
     { key = 'enabled', section = 'look', type = 'bool', default = true, label = 'BloodFX enabled' },
@@ -32,6 +38,8 @@ Schema.fields = {
       hint = 'Also colours particle effects. Only some game effects accept a tint; decals and screen blood always use your colour.' },
     { key = 'opacity', section = 'look', type = 'number', default = 0.95, min = 0.2, max = 1.0, step = 0.05, unit = '%',
       preset = true, label = 'Decal opacity' },
+    { key = 'nativeBlood', section = 'look', type = 'select', default = 'normal', options = NATIVE_BLOOD, preset = true,
+      label = 'Game blood', hint = "Swaps the game's own blood for everyone you see. Clown turns hits into colourful clown bursts." },
 
     { key = 'hit.enabled', section = 'hits', type = 'bool', default = true, label = 'Hit particles' },
     { key = 'hit.style', section = 'hits', type = 'select', default = 'realistic', options = 'styles', preset = true,

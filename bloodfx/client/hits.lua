@@ -54,7 +54,8 @@ local GROUP_SHOTGUN = U.u32(GetHashKey('GROUP_SHOTGUN'))
 local GROUP_SNIPER = U.u32(GetHashKey('GROUP_SNIPER'))
 local GROUP_THROWN = U.u32(GetHashKey('GROUP_THROWN'))
 
-local HEAD_BONES = { [31086] = true, [12844] = true, [65068] = true } -- SKEL_Head, IK_Head, FACIAL_facialRoot
+-- SKEL_Head, IK_Head, FACIAL_facialRoot and SKEL_Neck_1: bloodfx.dat packs treat the neck like the head.
+local HEAD_BONES = { [31086] = true, [12844] = true, [65068] = true, [39317] = true }
 local BONE_HEAD = 31086
 local BONE_SPINE3 = 24818
 local GUN_KINDS = { bullet = true, shotgun = true, sniper = true }

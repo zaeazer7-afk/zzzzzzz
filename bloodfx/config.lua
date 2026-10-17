@@ -34,6 +34,7 @@ Config.Defaults = {
     rainbowSpeed = 1.0,
     tint = false,           -- also tint particle effects with the colour
     opacity = 0.95,         -- decal opacity
+    nativeBlood = 'normal', -- the game's own blood: 'normal', 'clown' (colourful clown hits) or 'alien'
 
     hit = {
         enabled = true,
@@ -101,6 +102,10 @@ Config.Presets = {
     { key = 'rainbow', label = 'Rainbow', values = {
         rainbow = true, rainbowSpeed = 1.5, tint = true, hit = { style = 'pvp', scale = 1.2 },
     } },
+    { key = 'confetti', label = 'Confetti', values = { color = '#33b8ff', hit = { style = 'confetti' } } },
+    { key = 'clown', label = 'Clown', values = { color = '#ff4fd8', nativeBlood = 'clown', hit = { style = 'confetti' } } },
+    { key = 'gumballs', label = 'Gumballs', values = { color = '#ff7a1f', hit = { style = 'gumballs' } } },
+    { key = 'cash', label = 'Cash', values = { color = '#1f8a3a', hit = { style = 'cash' } } },
 }
 
 --[[
@@ -116,7 +121,9 @@ Config.Presets = {
       axis    'z' (default) or 'y', the axis the effect was authored along
     Groups: hit (every hit), headshot (extra on headshots), kill (extra on fatal hits),
             melee / blade (optional, override Config.WeaponEffects for this style).
-    A style with an empty `hit` list never spawns particles.
+    headshotReplaces = true plays only the headshot layers on head and neck hits, the way
+    bloodfx.dat packs swap headshots for confetti. A style with empty hit and headshot lists
+    never spawns particles.
 ]]
 Config.HitStyles = {
     {
@@ -190,6 +197,85 @@ Config.HitStyles = {
         key = 'decals', label = 'Decals only',
         hit = {}, headshot = {}, kill = {},
     },
+
+    -- The styles below copy what the uploaded bloodfx.dat packs do on hits, using effects from the
+    -- base game. Run one of the [bloodfx-packs] resources to restyle these effects server-wide.
+    {
+        key = 'confetti', label = 'Confetti heads', -- light blue, slow solar system, pink tracers
+        hit = { { asset = 'core', names = { 'blood_entry' }, scale = 1.0, dir = 'back' } },
+        headshot = { { asset = 'core', names = { 'ent_dst_inflate_ball_clr' }, scale = 0.8, dir = 'back' } },
+        headshotReplaces = true,
+        kill = { { asset = 'core', names = { 'ent_dst_inflate_ball_clr' }, scale = 1.2, dir = 'up' } },
+    },
+    {
+        key = 'white_confetti', label = 'White confetti', -- white confetti
+        hit = { { asset = 'core', names = { 'blood_entry' }, scale = 1.0, dir = 'back' } },
+        headshot = { { asset = 'core', names = { 'ent_dst_inflate_ball' }, scale = 0.8, dir = 'back' } },
+        headshotReplaces = true,
+        kill = { { asset = 'core', names = { 'ent_dst_inflate_ball' }, scale = 1.2, dir = 'up' } },
+    },
+    {
+        key = 'marbles', label = 'Marble heads', -- custom marbles: no body particles, gumballs on the head
+        hit = {},
+        headshot = { { asset = 'core', names = { 'ent_dst_gen_gobstop' }, scale = 0.8, dir = 'back' } },
+        headshotReplaces = true,
+        kill = {},
+    },
+    {
+        key = 'gumballs', label = 'Gumballs', -- slow confetti (new marbles)
+        hit = { { asset = 'core', names = { 'ent_dst_gen_gobstop' }, scale = 0.7, dir = 'back' } },
+        headshot = { { asset = 'core', names = { 'ent_dst_gen_gobstop' }, scale = 1.0, dir = 'back' } },
+        headshotReplaces = true,
+        kill = {},
+    },
+    {
+        key = 'cash', label = 'Cash', -- uglyscrim
+        hit = { { asset = 'core', names = { 'ent_brk_banknotes' }, scale = 0.8, dir = 'back' } },
+        headshot = { { asset = 'core', names = { 'ent_brk_banknotes' }, scale = 1.1, dir = 'back' } },
+        headshotReplaces = true,
+        kill = {},
+    },
+    {
+        key = 'water', label = 'Water', -- xans waterford
+        hit = { { asset = 'core', names = { 'bul_water_heli' }, scale = 0.8, dir = 'back' } },
+        headshot = { { asset = 'core', names = { 'bul_water_heli' }, scale = 1.1, dir = 'back' } },
+        headshotReplaces = true,
+        kill = {},
+    },
+    {
+        key = 'oil', label = 'Oil', -- sleep (blood#2747)
+        hit = { { asset = 'core', names = { 'liquid_splash_oil' }, scale = 0.8, dir = 'back' } },
+        headshot = { { asset = 'core', names = { 'liquid_splash_oil' }, scale = 1.1, dir = 'back' } },
+        headshotReplaces = true,
+        kill = {},
+    },
+    {
+        key = 'hatchet', label = 'Hatchet heads', -- w2mv blood x rem
+        hit = { { asset = 'core', names = { 'blood_entry' }, scale = 1.0, dir = 'back' } },
+        headshot = { { asset = 'core', names = { 'td_blood_hatchet' }, scale = 1.0, dir = 'forward' } },
+        headshotReplaces = true,
+        kill = {},
+    },
+    {
+        key = 'chopper', label = 'Chopper heads', -- blood splat (gunz)
+        hit = { { asset = 'core', names = { 'blood_entry' }, scale = 1.2, dir = 'back' } },
+        headshot = { { asset = 'core', names = { 'blood_chopper' }, scale = 1.0, dir = 'forward' } },
+        headshotReplaces = true,
+        kill = {},
+    },
+    {
+        key = 'stars', label = 'Star heads', -- red with stars
+        hit = { { asset = 'core', names = { 'blood_entry' }, scale = 1.0, dir = 'back' } },
+        headshot = { { asset = 'proj_indep_firework_v2', names = { 'scr_xmas_firework_burst_fizzle' }, scale = 0.6, dir = 'up' } },
+        headshotReplaces = true,
+        kill = {},
+    },
+}
+
+-- Particle dictionaries the game's clown and alien blood need while those modes are on.
+Config.NativeBloodAssets = {
+    clown = 'scr_rcbarry2',
+    alien = 'scr_rcbarry1',
 }
 
 -- Particles for damage that is not a bullet. Styles can override melee and blade.

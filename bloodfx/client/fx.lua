@@ -137,7 +137,7 @@ end
 
 -- Which particle layers a damage kind uses with the given style.
 local function kindLayers(style, kind)
-    if not style or not style.hit or #style.hit == 0 then return nil end
+    if not style.hit or #style.hit == 0 then return nil end
     local shared = Config.WeaponEffects or {}
     if kind == 'melee' then return style.melee or shared.melee end
     if kind == 'blade' then return style.blade or shared.blade end
@@ -243,16 +243,17 @@ function Fx.hit(victim, x, y, z, dx, dy, dz, info)
     local r, g, b = S.rgb()
     local boost = info.headshot and S.get('hit.headshot') or 1.0
 
-    if S.get('hit.enabled') then
-        local style = Fx.style(S.get('hit.style'))
-        local layers = kindLayers(style, info.kind)
-        if layers then
-            local scale = S.get('hit.scale') * spec.scale * boost
-            local tint = S.get('tint')
-            Fx.layers(layers, x, y, z, dx, dy, dz, scale, tint, r, g, b)
-            if info.headshot then Fx.layers(style.headshot, x, y, z, dx, dy, dz, scale, tint, r, g, b) end
-            if info.fatal and S.get('hit.kill') then Fx.layers(style.kill, x, y, z, dx, dy, dz, scale, tint, r, g, b) end
+    local style = S.get('hit.enabled') and Fx.style(S.get('hit.style'))
+    if style then
+        local scale = S.get('hit.scale') * spec.scale * boost
+        local tint = S.get('tint')
+        -- Packs like the confetti ones show only their head effect on headshots.
+        local replaced = info.headshot and style.headshotReplaces and style.headshot and #style.headshot > 0
+        if not replaced then
+            Fx.layers(kindLayers(style, info.kind), x, y, z, dx, dy, dz, scale, tint, r, g, b)
         end
+        if info.headshot then Fx.layers(style.headshot, x, y, z, dx, dy, dz, scale, tint, r, g, b) end
+        if info.fatal and S.get('hit.kill') then Fx.layers(style.kill, x, y, z, dx, dy, dz, scale, tint, r, g, b) end
     end
 
     if not S.get('splatter.enabled') or info.inWater then return end
@@ -276,6 +277,32 @@ function Fx.hit(victim, x, y, z, dx, dy, dz, info)
         end
     end
 end
+
+-- ------------------------------------------------------------------ the game's own blood
+
+-- Clown and alien blood are built-in game modes that swap every blood hit for that mode's effect.
+-- They need their mission's particle dictionary loaded while they are on.
+local nativeMode = 'normal'
+
+function Fx.applyNativeBlood(mode)
+    mode = mode or 'normal'
+    local asset = (Config.NativeBloodAssets or {})[mode]
+    if asset then Fx.requestAsset(asset) end
+    if mode == nativeMode then return end
+    nativeMode = mode
+    EnableClownBloodVfx(mode == 'clown')
+    EnableAlienBloodVfx(mode == 'alien')
+end
+
+function Fx.resetNativeBlood()
+    EnableClownBloodVfx(false)
+    EnableAlienBloodVfx(false)
+    nativeMode = 'normal'
+end
+
+S.onChange(function(settings)
+    Fx.applyNativeBlood(settings.enabled and settings.nativeBlood or 'normal')
+end)
 
 -- A single splatter on the ground under a point (exports, studio tests).
 function Fx.splatterAt(x, y, z, size, r, g, b)

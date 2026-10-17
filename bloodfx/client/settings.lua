@@ -2,7 +2,7 @@
 local U = BFX.Util
 local Schema = BFX.Schema
 
-local Settings = { current = {} }
+local Settings = { current = {}, listeners = {} }
 BFX.Settings = Settings
 
 local KVP_KEY = 'bloodfx:settings'
@@ -12,6 +12,13 @@ local saveToken = 0
 local function refreshColour()
     local r, g, b = U.hexToRgb(Settings.current.color)
     if r then baseR, baseG, baseB = r, g, b end
+    for _, fn in ipairs(Settings.listeners) do fn(Settings.current) end
+end
+
+-- Runs `fn(settings)` now and after every change.
+function Settings.onChange(fn)
+    Settings.listeners[#Settings.listeners + 1] = fn
+    fn(Settings.current)
 end
 
 local function queueSave()

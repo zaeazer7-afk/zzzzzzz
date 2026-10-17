@@ -1,0 +1,3 @@
+# Game files must stay byte-for-byte identical.
+*.ypt binary
+*.dat binary
