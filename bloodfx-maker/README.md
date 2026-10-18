@@ -1,34 +1,54 @@
 # BloodFX Maker
 
-A one-page tool that makes custom bullet tracers and hit effects for FiveM, starting from the packs you already have. Save always gives you one zip with both files: a new tracer `.rpf` for your FiveM `mods` folder and a new `bloodfx.dat`. The tracer is built from one of your packs, so Save asks for a pack if none is loaded.
+Makes custom bullet tracers, hit effects and muzzle flashes for FiveM, starting from the tracer packs you already have. Saving always gives you one zip with both files: a new tracer `.rpf` for your FiveM `mods` folder and a new `bloodfx.dat`.
 
-Open `index.html` in a browser, or use the hosted copy in Claude. Your files are read and rebuilt in the page itself and are never uploaded. The page loads one script (pako, for compression) from cdnjs, so it needs an internet connection.
+Open `index.html` in a browser, or use the hosted copy in Claude. Your files are read and rebuilt in the page itself and are never uploaded. The page loads pako (for compression) from cdnjs and its fonts from Google Fonts, so it needs an internet connection.
+
+## Pages
+
+| Page | What it does |
+| --- | --- |
+| Home | Open a pack, quick starts, the open pack's facts. |
+| Tracer | 30 templates, a live preview, the tracer sheet before and after, and the beam, smoke, timing and glow controls. |
+| Blood | 24 presets, a hit map (head, body, animals × guns, shotguns, snipers, melee, explosions), and an effect browser over every effect in the pack. |
+| Muzzle flash | Recolours the pack's muzzle flash particles. |
+| Pack explorer | Every effect (with loop and duration), texture and file in the pack's `core.ypt`, plus the tracer's own numbers. |
+| Install | What gets saved and where each file goes. |
+| Settings | Accent colour, preview defaults, tips, start over. |
+
+Undo and redo cover every change (Ctrl+Z, Ctrl+Y). Drop a `.rpf`, `core.ypt`, `bloodfx.dat` or a GTA screenshot anywhere on the window to open it; a screenshot becomes the preview's background.
 
 ## Tracer
 
-Load a tracer pack (`.rpf`, such as `bluetrace.rpf` or `TRacer.rpf`) or a loose `core.ypt`. The maker finds `core.ypt` inside the pack, rewrites the gun tracer (`bullet_tracer`), and saves the pack again with the same folders and file names. Everything else in the pack is copied unchanged.
+Open a tracer pack (`.rpf`, such as `bluetrace.rpf`) or a loose `core.ypt`. The maker finds `core.ypt` inside the pack, rewrites the gun tracer (`bullet_tracer`), and saves the pack again with the same folders and file names. Everything else in the pack is copied unchanged.
 
 | Control | What it changes in `core.ypt` |
 | --- | --- |
-| Look, colour, width | Redraws the tracer sheet `ptfx_bullet_tracer`. Frame 3 of its four frames is the beam: none (smoke only), solid, neon (thin white core) or twin lines. The beam particle colour and emitter tint are set to white so the drawn colour shows as picked. |
-| Smoke trail | Frames 0–2 of the same sheet. The game plays them in order over the smoke's life. Straight draws a crisp line with a ragged edge that changes from frame to frame, like the pink tracers pack; wavy draws a wavy line. |
-| Keep pack's | Leaves the sheet alone. Tint multiplies the pack's own colours instead. |
-| Glow | Emissive intensity of the `bullet_tracer` particle (stock 15–16). |
+| Beam look | The beam frame of the tracer sheet `ptfx_bullet_tracer` (frame 4 of 4). Pack's keeps it; Recolour keeps its exact pixels and paints them in your colour; None, Solid, Neon and Twin draw a new beam. Drawn beams can fade to a second colour along the tracer. |
+| Smoke look | Frames 1–3 of the same sheet, which the game steps through over the smoke's life. Pack's and Recolour work like the beam's; Straight draws a crisp line with a ragged edge, Wavy a wavy line. |
+| Tint | With the pack's beam and smoke both kept, multiplies their colour. |
+| Glow | Emissive intensity of the `bullet_tracer` particle (stock 15). |
 | Thickness | Zoom scalar of the tracer emitter (stock 1). |
-| Far-away size | Size of the tracer at long range, from the emitter's LOD evolution (stock 200). |
-| Speed | Playback rate of the whole effect. Lower is a slower beam. The emitter's own rate is reset to 1 so the slider is the only speed. |
+| Size far away | Size of the tracer at long range, from the emitter's LOD evolution (stock 200). |
+| Speed | Playback rate of the whole effect. The emitter's own rate is reset to 1 so the slider is the only speed. |
 | Stays for | Effect duration (stock 0.1 s). |
 | Beam life | Particle life of the tracer emitter (stock 0.05–0.07 s). |
 
-Controls start at the loaded pack's values, and anything you don't touch is written back unchanged. DXT1 sheets are redrawn as DXT1; DXT5 and BC7 sheets are written as DXT5, which takes the same space.
+Controls start at the pack's own values, and anything you don't touch is written back unchanged.
+
+Recolouring only changes the two colour endpoints of each DXT1 or DXT5 block, so the shape and transparency stay exactly as they were at every mip level. BC7 sheets (in the sleep, slow confetti, white confetti and xans packs) can't be recoloured; keep them whole or draw a new beam and smoke, which is written as DXT5 in the same space.
 
 ## Blood
 
-`bloodfx.dat` picks an effect for each body part and weapon type. Start from the built-in file (the layout all of your packs share, with normal blood everywhere) or load your own, then add rules such as "when the head is hit by guns, shotguns and snipers, play Cash".
+`bloodfx.dat` picks an effect for each body part and weapon type. Start from the built-in file (the layout all of your packs share, with normal blood everywhere) or open your own, then pick hits on the map and an effect for them.
 
-Rows in `bloodfx.dat` are shared between hits. When a rule only covers some of the hits that use a row, the maker copies that row to a new id and points just those hits at the copy, so nothing else changes. For example, in the stock layout explosions use the head row, so a headshot rule no longer turns explosions into confetti too. Splat colour writes the decal tint (the game uses 50 0 0), and splatter size scales the decal sizes.
+Rows in `bloodfx.dat` are shared between hits. When a change only covers some of the hits that use a row, the maker copies that row to a new id and points just those hits at the copy, so nothing else changes. Splat colour writes the decal tint (the game uses 50 0 0), and splatter size scales the decal sizes.
 
-The effect picker lists effects from your packs and from GTA's standard `core.ypt`. Any other name works too; the maker warns when it isn't in the loaded pack or in the standard file.
+The effect browser lists every effect in the open pack (or in GTA's standard `core.ypt`), sorted into categories, and warns when an effect loops, runs long, or isn't in the pack.
+
+## Muzzle flash
+
+Recolours every particle whose name contains `muz` (or other text you type), with a tick box for each. Each keyframe keeps its own brightness and alpha, so a flash that fades still fades. It can also set their glow.
 
 ## Install
 
@@ -39,9 +59,10 @@ The effect picker lists effects from your packs and from GTA's standard `core.yp
 
 ## Limits
 
-- Not tested in game. Every output was checked by opening it again and by exporting the rebuilt `core.ypt` with CodeWalker, for all 12 reference packs. The preview in the page is a sketch of the look, not a render of GTA's lighting.
+- Not tested in game. Every output was checked by opening it again and by exporting the rebuilt `core.ypt` with CodeWalker, for all 12 reference packs.
+- The preview is a sketch drawn from the pack's real tracer sheet, smoke life and fade, not GTA's renderer. CodeWalker and OpenIV can't play particle effects either.
 - Encrypted RPFs aren't supported. Open the pack in OpenIV, switch it to unencrypted (OpenIV) and save it first.
-- Only the standard gun tracer (`bullet_tracer`) is retimed and recoloured. Shotgun, machine-gun and jet tracers draw from the same sheet, so they pick up its new shape mixed with their own colour and timing.
+- Only the standard gun tracer (`bullet_tracer`) is retimed and recoloured. Shotgun, machine-gun and jet tracers draw from the same sheet, so they pick up its new look mixed with their own colour and timing.
 
 ## Development
 
@@ -51,4 +72,4 @@ node test/test_dat.js      # bloodfx.dat editing, on every bloodfx.dat in [blood
 node test/test_tracer.js   # tracer patching on every core.ypt in [bloodfx-packs], plus a nested .rpf round trip
 ```
 
-`src/core/bfxcore.js` holds the RPF, resource, `core.ypt` and `bloodfx.dat` code and runs in browsers and Node. `src/ui/legacy-page.html` is the page. The build inlines the core, `src/base_bloodfx.dat` and `src/core_effects.json` (the effect names in GTA's standard `core.ypt`).
+`src/core/bfxcore.js` holds the RPF, resource, `core.ypt` and `bloodfx.dat` code and runs in browsers and Node. `src/ui/` is the interface: `index.html` and `app.css` are the frame, `app.js` holds the state, undo, loading and saving, and `pages/` has one file per page. `preview.js` draws the preview, `art.js` the thumbnails, and `platform.js` hides the difference between a browser, Claude and the Windows app. The build inlines everything into one page, with `src/base_bloodfx.dat`, `src/core_effects.json` (the effect names in GTA's standard `core.ypt`) and `src/long_effects.json` (the standard effects that loop or run longer than 4 s).

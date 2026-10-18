@@ -425,6 +425,7 @@
       smokeColour: smokeRule === undefined ? null : readColour(y, smokeRule),
       beamFrames: beamRule === undefined ? null : [y.u32(beamRule + 0x118), y.u32(beamRule + 0x11C)],
       life: readLife(y, y.emitterRules().get('bullet_tracer') ?? -1),
+      smokeLife: readLife(y, y.emitterRules().get('bullet_tracer_smoke') ?? -1),
       texture: readTexture(y, 'ptfx_bullet_tracer'),
     };
     return out;
@@ -511,12 +512,68 @@
       setRgb(y, t.smokeColour.rgbaMax, s.smokeRgb);
       log.push('smoke colour multiplier');
     }
+    if (s.muzzle && s.muzzle.names && s.muzzle.names.length) {
+      recolourRules(y, s.muzzle.names, s.muzzle.rgb, s.muzzle.emissive);
+      log.push(`${s.muzzle.names.length} muzzle flashes`);
+    }
     if (s.texture) {
       if (!t.texture) throw new Error('This core.ypt has no ptfx_bullet_tracer texture to redraw');
       writeTracerTexture(y, t.texture, s.texture);
       log.push('tracer texture');
     }
     return log;
+  }
+
+  // ---------------------------------------------------------------- bulk colour edits and pack contents
+
+  // Particle rules whose name contains `match` and that have colour keyframes (muzzle flashes are "muz").
+  function colourRules(y, match) {
+    const want = String(match || '').toLowerCase();
+    const out = [];
+    for (const [name, rule] of y.particleRules()) {
+      if (want && !name.toLowerCase().includes(want)) continue;
+      const c = readColour(y, rule);
+      if (!c || !(c.rgbaMin.length + c.rgbaMax.length)) continue;
+      const k = c.rgbaMax[0] || c.rgbaMin[0];
+      out.push({ name, keyframes: c.rgbaMin.length + c.rgbaMax.length, now: k.v.slice(0, 3), emissive: c.emissive[0] ? c.emissive[0].v[0] : null });
+    }
+    return out.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  }
+
+  // Recolours the named particle rules to `rgb` (0-1). Each keyframe keeps its own brightness and alpha, so a flash
+  // that fades still fades. Sets their glow too when `emissive` is a number.
+  function recolourRules(y, names, rgb, emissive) {
+    const pick = new Set(names);
+    let count = 0;
+    const tint = (keyframes) => {
+      for (const k of keyframes) {
+        const m = Math.max(k.v[0], k.v[1], k.v[2]);
+        setRgb(y, [k], rgb.map((c) => c * m));
+      }
+    };
+    for (const [name, rule] of y.particleRules()) {
+      if (!pick.has(name)) continue;
+      const c = readColour(y, rule);
+      if (!c) continue;
+      tint(c.rgbaMin);
+      tint(c.rgbaMax);
+      if (typeof emissive === 'number') for (const k of c.emissive) { y.setF32(k.off + 16, emissive); y.setF32(k.off + 20, emissive); }
+      count++;
+    }
+    return count;
+  }
+
+  // Names and counts for the pack explorer.
+  function packContents(y) {
+    const effects = [...y.effectRules().entries()].map(([name, p]) => ({
+      name, loops: y.d.getInt32(p + 0x50, true), duration: Math.max(y.f32(p + 0x78), y.f32(p + 0x7C)), emitters: y.u16(p + 0x40),
+    }));
+    const textures = [];
+    for (const name of y.textures().keys()) {
+      try { textures.push(readTexture(y, name)); } catch { textures.push({ name, broken: true }); }
+    }
+    const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+    return { effects: effects.sort(byName), emitters: y.emitterRules().size, particles: y.particleRules().size, textures: textures.sort(byName) };
   }
 
   // ---------------------------------------------------------------- tracer texture drawing
@@ -550,10 +607,19 @@
       const i = (y * w + x) * 4;
       px[i] = rgb[0]; px[i + 1] = rgb[1]; px[i + 2] = rgb[2]; px[i + 3] = 255;
     };
+    // A second colour fades the beam or smoke along its length (the sheet's height runs along the bullet's path).
+    const along = (a, b, flip) => {
+      const c0 = hexRgb(a), c1 = b ? hexRgb(b) : null;
+      return (y) => {
+        if (!c1) return c0;
+        const t = h > 1 ? (flip ? 1 - y / (h - 1) : y / (h - 1)) : 0;
+        return [0, 1, 2].map((k) => Math.round(c0[k] + (c1[k] - c0[k]) * t));
+      };
+    };
     const beam = opts.beam || {};
     const style = beam.style || 'solid';
     if (style !== 'none') {
-      const colour = hexRgb(beam.colour);
+      const colourAt = along(beam.colour, beam.colour2, beam.flip);
       const core = hexRgb(beam.core || '#ffffff');
       const width = Math.max(1, Math.round((beam.width || 3) * scale));
       const centre = Math.floor(frameW * 3 + frameW / 2 - 1);
@@ -563,6 +629,7 @@
       const coreX0 = x0 + Math.floor((width - coreW) / 2);
       const lineW = Math.max(1, Math.floor(width / 3));
       for (let y = 0; y < h; y++) {
+        const colour = colourAt(y);
         for (let x = x0; x < x0 + width; x++) {
           if (style === 'solid') put(x, y, colour);
           else if (style === 'neon') put(x, y, x >= coreX0 && x < coreX0 + coreW ? core : colour);
@@ -574,24 +641,26 @@
     if (smoke.mode === 'line') {
       // A crisp line with one ragged edge, like the pink tracers pack. Each smoke frame gets its own raggedness,
       // so the trail flickers like smoke as the game steps through the frames.
-      const colour = hexRgb(smoke.colour);
+      const colourAt = along(smoke.colour, smoke.colour2, smoke.flip);
       const width = Math.max(1, Math.round((smoke.width || 4) * scale));
       for (let f = 0; f < 3; f++) {
         const trims = raggedEdge(0x51ED + f * 977, h);
         const left = Math.floor(frameW * f + frameW / 2) - Math.floor((width + 1) / 2);
         for (let y = 0; y < h; y++) {
           const rowW = Math.max(1, width + 1 - trims[y]);
+          const colour = colourAt(y);
           for (let x = left; x < left + rowW; x++) put(x, y, colour);
         }
       }
     } else if (smoke.mode === 'wavy') {
-      const colour = hexRgb(smoke.colour);
+      const colourAt = along(smoke.colour, smoke.colour2, smoke.flip);
       const width = Math.max(1, Math.round((smoke.width || 3) * scale));
       for (let f = 0; f < 3; f++) {
         const centre = Math.floor(frameW * f + frameW / 2 - 1);
         for (let y = 0; y < h; y++) {
           const wave = Math.round(Math.sin((y / h) * Math.PI * 6 + f * 2.1) * 3 * scale);
           const x0 = centre - Math.floor((width - 1) / 2) + wave;
+          const colour = colourAt(y);
           for (let x = x0; x < x0 + width; x++) put(x, y, colour);
         }
       }
@@ -1204,6 +1273,7 @@
   return {
     setZlib, joaat, readRpf, writeRpf, listFiles, readBinary, pageSize, openResource, packResource,
     Ypt, readTracer, applyTracer, drawTracerSheet, composeSheet, canRecolour, encodeTexture, decodeTexture, textureTarget, openPack, savePack,
+    colourRules, recolourRules, packContents, readTexture,
     FMT, FMT_NAME, argb, BloodDat, WEAPONS, BLOOD_COLUMNS, INFO: { T_TINT, T_SIZES, T_FX, T_EVO },
   };
 });

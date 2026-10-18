@@ -1,0 +1,45 @@
+<title>BloodFX Maker</title>
+<!--@HEAD@-->
+<!--@STYLE@-->
+
+<div class="app" id="app">
+  <header class="titlebar">
+    <div class="brand"><span class="logo" id="logo"></span><span class="wordmark">BloodFX Maker</span><span class="ver" id="ver"></span></div>
+    <div class="crumbs" id="crumbs" aria-hidden="true"></div>
+    <span class="grow"></span>
+    <button class="file-chip empty" id="file-chip" type="button" title="Open a tracer pack (Ctrl+O)"><span class="tag" id="file-chip-tag">RPF</span><span id="file-chip-name">No tracer pack open</span></button>
+    <span class="caption-space"></span>
+  </header>
+
+  <div class="toolbar" role="toolbar" aria-label="File and edit">
+    <button class="btn ghost small" id="tb-open" type="button" title="Open a tracer pack (Ctrl+O)"><span data-icon="open"></span>Open pack</button>
+    <button class="btn ghost small" id="tb-dat" type="button" title="Start the blood from your own bloodfx.dat"><span data-icon="drop"></span>Open bloodfx.dat</button>
+    <span class="sep"></span>
+    <button class="icon-btn" id="tb-undo" type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled><span data-icon="undo"></span></button>
+    <button class="icon-btn" id="tb-redo" type="button" title="Redo (Ctrl+Y)" aria-label="Redo" disabled><span data-icon="redo"></span></button>
+    <span class="sep"></span>
+    <button class="icon-btn" id="tb-fire" type="button" title="Fire a test shot (Space)" aria-label="Fire a test shot"><span data-icon="fire"></span></button>
+    <span class="grow"></span>
+    <span class="tb-note" id="tb-note"></span>
+    <button class="btn" id="tb-save" type="button" title="Save the tracer pack and bloodfx.dat in one zip (Ctrl+S)"><span data-icon="save"></span>Save .zip</button>
+    <button class="btn primary" id="tb-install" type="button" title="Copy both files into FiveM (Ctrl+I)"><span data-icon="install"></span><span id="tb-install-label">Install to FiveM</span></button>
+  </div>
+
+  <nav class="tabs" role="tablist" aria-label="Workspace" id="tabs"></nav>
+
+  <div class="page-head" id="page-head">
+    <span class="ph-icon" id="ph-icon"></span>
+    <div class="ph-text"><h1 id="ph-title"></h1><p id="ph-text"></p></div>
+    <div class="ph-actions" id="ph-actions"></div>
+  </div>
+
+  <main class="pages" id="pages"></main>
+
+  <footer class="statusbar" id="statusbar"></footer>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="overlay" id="drop-overlay" hidden><div class="drop-box">Drop to open<small>A tracer pack (.rpf or core.ypt), a bloodfx.dat, or a GTA screenshot for the preview</small></div></div>
+<div class="overlay" id="busy" hidden><div class="busy-box" role="status"><span class="spinner"></span><span id="busy-text">Working…</span></div></div>
+<div class="overlay" id="fatal" hidden><div class="busy-box fatal-box" role="alert"><span id="fatal-text"></span></div></div>
+<!--@SCRIPTS@-->

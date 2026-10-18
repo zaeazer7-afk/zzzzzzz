@@ -22,7 +22,7 @@
     sheet.width = 128; sheet.height = 256;
     const sctx = sheet.getContext('2d');
     const reduce = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const view = { scene: 'street', camera: 'side', slowmo: false, paused: false, auto: true, focus: null };
+    const view = { scene: 'street', camera: 'side', slowmo: false, paused: false, auto: true, focus: null, image: null };
     let W = 0, H = 0, dpr = 1, backdrop = null;
     const shots = [], parts = [];
     let clock = 0, lastReal = 0, nextShot = 0.4, shotCount = 0, running = false, visible = true;
@@ -95,6 +95,15 @@
       b.fillStyle = glow; b.fillRect(0, 0, W, H);
     }
 
+    // A screenshot from the player's own game, cropped to fill the stage.
+    function paintImage(b, img) {
+      const k = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      const w = img.naturalWidth * k, h = img.naturalHeight * k;
+      b.fillStyle = '#000'; b.fillRect(0, 0, W, H);
+      b.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+      b.fillStyle = 'rgba(0,0,0,0.12)'; b.fillRect(0, 0, W, H);
+    }
+
     function resize() {
       const r = canvas.getBoundingClientRect();
       dpr = Math.min(2, root.devicePixelRatio || 1);
@@ -103,7 +112,9 @@
       backdrop = document.createElement('canvas');
       backdrop.width = W; backdrop.height = H;
       const b = backdrop.getContext('2d');
-      if (view.scene === 'range') paintRange(b); else paintStreet(b);
+      if (view.scene === 'image' && view.image) paintImage(b, view.image);
+      else if (view.scene === 'range') paintRange(b);
+      else paintStreet(b);
       if (!running) still();
     }
 
@@ -118,6 +129,13 @@
 
     function drawDummy(c, g) {
       const d = g.dummy;
+      if (view.scene === 'image' && view.image) {
+        c.save(); c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1.5 * dpr;
+        const x = d.x, y = d.headY, r = 6 * dpr;
+        c.beginPath(); c.moveTo(x - r * 2, y); c.lineTo(x - r * 0.6, y); c.moveTo(x + r * 0.6, y); c.lineTo(x + r * 2, y);
+        c.moveTo(x, y - r * 2); c.lineTo(x, y - r * 0.6); c.moveTo(x, y + r * 0.6); c.lineTo(x, y + r * 2); c.stroke(); c.restore();
+        return;
+      }
       c.save();
       c.fillStyle = '#273042'; c.strokeStyle = 'rgba(160,185,220,0.38)'; c.lineWidth = 1.5 * dpr;
       c.beginPath(); c.arc(d.x, d.headY, d.r, 0, Math.PI * 2); c.fill(); c.stroke();
@@ -151,10 +169,26 @@
       const d = g.dummy;
       const to = z === 'head' ? [d.x - d.r * 0.3, d.headY] : [d.x - d.w * 0.2, d.top + (d.bottom - d.top) * 0.35];
       const t = opts.getTracer();
+      const timing = opts.getTiming ? opts.getTiming() : null;
+      const lerp = (range) => range[0] + (range[1] - range[0]) * Math.random();
       shots.push({ born: clock, from: g.muzzle.slice(), to, zone: z, perspective: g.perspective, scale: g.scale,
         travel: Math.max(0.05, 0.14 / speedNow()), linger: Math.min(3, t.stay / speedNow()), hit: false,
-        smoke: t.style !== 'keep' && t.smoke !== 'off' });
+        smoke: t.smoke !== 'off', smokeLife: Math.min(4, (timing ? lerp(timing.smokeLife) : 0.6) / speedNow()),
+        smokeAlpha: timing ? timing.smokeAlpha : null });
       if (shots.length > 8) shots.shift();
+    }
+
+    // Piecewise-linear alpha over life from the pack's keyframes ([time, alpha] pairs); a soft fade when there are none.
+    function envelope(keys, f) {
+      if (!keys || !keys.length) return f < 0.1 ? f / 0.1 : 1 - (f - 0.1) / 0.9;
+      if (f <= keys[0][0]) return keys[0][1];
+      for (let i = 1; i < keys.length; i++) {
+        if (f <= keys[i][0]) {
+          const [t0, a0] = keys[i - 1], [t1, a1] = keys[i];
+          return a0 + (a1 - a0) * ((f - t0) / Math.max(1e-6, t1 - t0));
+        }
+      }
+      return keys[keys.length - 1][1];
     }
 
     function strip(c, index, x0, y0, x1, y1, w0, w1, alpha, v0, v1) {
@@ -195,10 +229,14 @@
         const fade = k < 1 ? 1 : Math.max(0, 1 - (age - s.travel) / Math.max(0.06, s.linger));
         // width shrinks with distance in the shooter view
         const wAt = (p) => (s.perspective ? base * (1.6 - 1.45 * p) : base);
-        if (s.smoke) {
-          const smokeFade = Math.max(0, 1 - Math.max(0, age - s.travel) / (s.linger + 0.8));
-          const fr = Math.floor(age * 8) % 3;
-          strip(c, fr, x0, y0, hx, hy, wAt(0) * 1.1, wAt(k) * 1.1, smokeFade * 0.85, 0, 1);
+        if (s.smoke && age < s.smokeLife) {
+          // the game steps through smoke frames 0-2 over the smoke's life and blends between them
+          const f = age / s.smokeLife;
+          const pos = Math.min(1.999, f * 2);
+          const fr = Math.floor(pos), mix = pos - fr;
+          const env = envelope(s.smokeAlpha, f);
+          strip(c, fr, x0, y0, hx, hy, wAt(0) * 1.1, wAt(k) * 1.1, env * (1 - mix) * 0.95, 0, 1);
+          strip(c, fr + 1, x0, y0, hx, hy, wAt(0) * 1.1, wAt(k) * 1.1, env * mix * 0.95, 0, 1);
         }
         if (fade > 0) {
           c.shadowColor = t.style === 'keep' ? (t.tintOn ? t.tint : '#ffb070') : t.colour;
@@ -349,7 +387,7 @@
       const saveShots = shots.splice(0), saveParts = parts.splice(0);
       const g = rig();
       shots.push({ born: clock - 0.1, from: g.muzzle.slice(), to: [g.dummy.x - g.dummy.r * 0.3, g.dummy.headY], zone: 'head', perspective: g.perspective, scale: g.scale,
-        travel: 0.2, linger: 1, hit: true, smoke: opts.getTracer().style !== 'keep' && opts.getTracer().smoke !== 'off' });
+        travel: 0.2, linger: 1, hit: true, smoke: opts.getTracer().smoke !== 'off', smokeLife: 0.6, smokeAlpha: null });
       draw(0);
       shots.splice(0); shots.push(...saveShots); parts.push(...saveParts);
     }
@@ -379,7 +417,7 @@
       soon() { nextShot = Math.min(nextShot, clock + 0.15); if (!running) still(); },
       set(key, value) {
         view[key] = value;
-        if (key === 'scene' || key === 'camera') { shots.splice(0); parts.splice(0); resize(); }
+        if (key === 'scene' || key === 'camera' || key === 'image') { shots.splice(0); parts.splice(0); resize(); }
         if (!running) still();
       },
       get: (key) => view[key],

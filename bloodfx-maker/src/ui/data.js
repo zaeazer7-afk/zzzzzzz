@@ -73,39 +73,110 @@
   const STOCK = { glow: 15, zoom: 1, far: 200, speed: 1, stay: 0.1, life: 0.07 };
   const SWATCHES = ['#ff2bd6', '#39e6ff', '#ff2a3d', '#7dff6a', '#ffd23f', '#8a6bff', '#ffffff', '#ff9a4d'];
 
+  // Tracer presets. `from` names the reference pack a preset is modelled on.
+  const T = (o) => ({ glow: 15, zoom: 1, far: 200, speed: 1, stay: 0.1, life: 0.07, ...o });
   const TRACER_PRESETS = [
-    { id: 'slow-beam', name: 'Slow beam', sub: 'Cyan neon at half speed, hangs for a second',
-      set: { style: 'neon', colour: '#39e6ff', core: '#ffffff', width: 5, smoke: 'off', glow: 22, zoom: 1.6, far: 500, speed: 0.5, stay: 1, life: 0.09 } },
-    { id: 'laser', name: 'Laser', sub: 'Thin red neon with extra glow',
-      set: { style: 'neon', colour: '#ff2a3d', core: '#ffffff', width: 3, smoke: 'off', glow: 30, zoom: 1.1, far: 500, speed: 1, stay: 0.1, life: 0.07 } },
-    { id: 'pink-smoke', name: 'Pink smoke', sub: 'Pink line with a wavy smoke trail',
-      set: { style: 'solid', colour: '#f0a8ff', width: 3, smoke: 'wavy', smokeColour: '#e7c3f7', smokeWidth: 4, glow: 15, zoom: 1, far: 200, speed: 1, stay: 0.4, life: 0.07 } },
-    { id: 'gold', name: 'Gold', sub: 'Warm gold neon, a little slower',
-      set: { style: 'neon', colour: '#ffc21f', core: '#fff6d6', width: 4, smoke: 'off', glow: 24, zoom: 1.3, far: 500, speed: 0.8, stay: 0.5, life: 0.08 } },
-    { id: 'slow-confetti', name: 'Slow confetti', sub: 'White line at a fifth of the speed',
-      set: { style: 'solid', colour: '#ffffff', width: 3, smoke: 'off', glow: 15, zoom: 1, far: 200, speed: 0.2, stay: 0.7, life: 0.07 } },
-    { id: 'thick-bar', name: 'Thick bar', sub: 'Wide solid red',
-      set: { style: 'solid', colour: '#ff1e1e', width: 8, smoke: 'off', glow: 18, zoom: 1.3, far: 500, speed: 1, stay: 0.1, life: 0.07 } },
-    { id: 'twin-rails', name: 'Twin rails', sub: 'Two green lines and a thin trail',
-      set: { style: 'twin', colour: '#7dff6a', width: 9, smoke: 'line', smokeColour: '#7dff6a', smokeWidth: 1, glow: 20, zoom: 1.2, far: 400, speed: 0.7, stay: 0.6, life: 0.08 } },
-    { id: 'ghost', name: 'Ghost', sub: 'Faint white trail that hangs around',
-      set: { style: 'solid', colour: '#e8f1ff', width: 2, smoke: 'line', smokeColour: '#ffffff', smokeWidth: 1, glow: 8, zoom: 0.8, far: 300, speed: 0.35, stay: 2, life: 0.1 } },
+    { id: 'pack-recolour', group: 'Your pack', name: 'Recolour pack smoke', sub: "Keeps your pack's smoke, new colour", set: { style: 'keep', smoke: 'recolour', smokeColour: '#ffc21f' }, motion: false },
+    { id: 'pack-recolour-beam', group: 'Your pack', name: 'Recolour pack beam', sub: "Keeps your pack's beam, new colour", set: { style: 'recolour', colour: '#39e6ff', smoke: 'keep' }, motion: false },
+    { id: 'slow-beam', group: 'Like your packs', name: 'Slow beam', sub: 'Cyan line at half speed, hangs for a second', from: 'Slow Solarsystem',
+      set: T({ style: 'solid', colour: '#39e6ff', width: 3, smoke: 'off', glow: 20, zoom: 1.6, far: 500, speed: 0.5, stay: 1, life: 0.09 }) },
+    { id: 'pink-smoke', group: 'Like your packs', name: 'Pink smoke', sub: 'No beam, wavy pink smoke', from: 'pink tracers',
+      set: T({ style: 'none', smoke: 'wavy', smokeColour: '#e7c3f7', smokeWidth: 4, stay: 0.4 }) },
+    { id: 'slow-confetti', group: 'Like your packs', name: 'Slow confetti', sub: 'White line at a fifth of the speed', from: 'Slow Confetti',
+      set: T({ style: 'solid', colour: '#ffffff', width: 3, smoke: 'off', speed: 0.2, stay: 0.7 }) },
+    { id: 'red-line', group: 'Like your packs', name: 'Red line', sub: 'Thin red line', from: 'blood splat',
+      set: T({ style: 'solid', colour: '#ff0029', width: 3, smoke: 'off' }) },
+    { id: 'light-blue', group: 'Like your packs', name: 'Light blue', sub: 'Thin cyan line', from: '55$ light blue',
+      set: T({ style: 'solid', colour: '#00ffff', width: 3, smoke: 'off' }) },
+    { id: 'thick-bar', group: 'Like your packs', name: 'Thick bar', sub: 'Wide solid red', from: 'w2mv x Rem',
+      set: T({ style: 'solid', colour: '#ff1e1e', width: 8, smoke: 'off', glow: 18, zoom: 1.3, far: 500 }) },
+    { id: 'green-line', group: 'Like your packs', name: 'Green line', sub: 'Thin lime line', from: 'uglyscrim',
+      set: T({ style: 'solid', colour: '#73eb31', width: 3, smoke: 'off', stay: 0.4, speed: 0.4 }) },
+    { id: 'smoke-trail', group: 'Smoke', name: 'Smoke trail', sub: 'No beam, white smoke line', set: T({ style: 'none', smoke: 'line', smokeColour: '#ffffff', smokeWidth: 4, stay: 0.6 }) },
+    { id: 'gold-smoke', group: 'Smoke', name: 'Gold smoke', sub: 'No beam, gold smoke line', set: T({ style: 'none', smoke: 'line', smokeColour: '#ffc21f', smokeWidth: 4, stay: 0.6 }) },
+    { id: 'toxic-smoke', group: 'Smoke', name: 'Toxic smoke', sub: 'No beam, wavy green smoke', set: T({ style: 'none', smoke: 'wavy', smokeColour: '#7dff6a', smokeWidth: 4, stay: 0.6 }) },
+    { id: 'blood-smoke', group: 'Smoke', name: 'Blood smoke', sub: 'No beam, dark red smoke line', set: T({ style: 'none', smoke: 'line', smokeColour: '#c8102e', smokeWidth: 5, stay: 0.8 }) },
+    { id: 'ice-smoke', group: 'Smoke', name: 'Ice smoke', sub: 'No beam, pale blue wavy smoke', set: T({ style: 'none', smoke: 'wavy', smokeColour: '#bfe9ff', smokeWidth: 3, stay: 0.8, speed: 0.6 }) },
+    { id: 'laser', group: 'Beams', name: 'Laser', sub: 'Thin red neon with extra glow', set: T({ style: 'neon', colour: '#ff2a3d', core: '#ffffff', width: 3, smoke: 'off', glow: 30, zoom: 1.1, far: 500 }) },
+    { id: 'plasma', group: 'Beams', name: 'Plasma', sub: 'Thick purple neon, slow', set: T({ style: 'neon', colour: '#9b5cff', core: '#f1e8ff', width: 6, smoke: 'off', glow: 28, zoom: 1.4, far: 600, speed: 0.6, stay: 0.4, life: 0.09 }) },
+    { id: 'gold', group: 'Beams', name: 'Gold', sub: 'Warm gold neon, a little slower', set: T({ style: 'neon', colour: '#ffc21f', core: '#fff6d6', width: 4, smoke: 'off', glow: 24, zoom: 1.3, far: 500, speed: 0.8, stay: 0.5, life: 0.08 }) },
+    { id: 'ice', group: 'Beams', name: 'Ice', sub: 'Pale blue line that lingers', set: T({ style: 'solid', colour: '#bfe9ff', width: 3, smoke: 'line', smokeColour: '#e6f6ff', smokeWidth: 2, glow: 18, speed: 0.7, stay: 1.2, life: 0.08 }) },
+    { id: 'hellfire', group: 'Beams', name: 'Hellfire', sub: 'Orange neon with a red wavy trail', set: T({ style: 'neon', colour: '#ff6a00', core: '#ffe2c2', width: 4, smoke: 'wavy', smokeColour: '#ff2a1a', smokeWidth: 3, glow: 26, zoom: 1.2, far: 500, stay: 0.5 }) },
+    { id: 'twin-rails', group: 'Beams', name: 'Twin rails', sub: 'Two green lines and a thin trail', set: T({ style: 'twin', colour: '#7dff6a', width: 9, smoke: 'line', smokeColour: '#7dff6a', smokeWidth: 1, glow: 20, zoom: 1.2, far: 400, speed: 0.7, stay: 0.6, life: 0.08 }) },
+    { id: 'sniper-streak', group: 'Beams', name: 'Sniper streak', sub: 'Long white streak, seen from far away', set: T({ style: 'solid', colour: '#ffffff', width: 2, smoke: 'off', glow: 18, zoom: 1, far: 800, speed: 1, stay: 0.3, life: 0.2 }) },
+    { id: 'ghost', group: 'Beams', name: 'Ghost', sub: 'Faint white trail that hangs around', set: T({ style: 'solid', colour: '#e8f1ff', width: 2, smoke: 'line', smokeColour: '#ffffff', smokeWidth: 1, glow: 8, zoom: 0.8, far: 300, speed: 0.35, stay: 2, life: 0.1 }) },
+    { id: 'stock', group: 'Beams', name: 'Stock look', sub: "GTA's normal timing and glow", set: T({ style: 'keep', smoke: 'keep' }) },
+    { id: 'nebula', group: 'Colour along the tracer', name: 'Nebula', sub: 'Pink fading to cyan', set: T({ style: 'neon', colour: '#ff3dd6', colour2: '#38d9ff', core: '#ffffff', width: 4, smoke: 'off', glow: 22, zoom: 1.2, far: 500 }) },
+    { id: 'cotton-candy', group: 'Colour along the tracer', name: 'Cotton candy', sub: 'Baby pink to baby blue', set: T({ style: 'solid', colour: '#ffb3e6', colour2: '#a8d8ff', width: 4, smoke: 'off', glow: 18 }) },
+    { id: 'lava-water', group: 'Colour along the tracer', name: 'Lava and water', sub: 'Orange fading to blue', set: T({ style: 'solid', colour: '#ff5a00', colour2: '#1e8bff', width: 4, smoke: 'off', glow: 22, zoom: 1.2 }) },
+    { id: 'sunset', group: 'Colour along the tracer', name: 'Sunset', sub: 'Gold to purple', set: T({ style: 'neon', colour: '#ffb21f', colour2: '#8a2be2', core: '#fff3d6', width: 4, smoke: 'off', glow: 22, zoom: 1.2 }) },
+    { id: 'aurora', group: 'Colour along the tracer', name: 'Aurora', sub: 'Green to violet with a trail', set: T({ style: 'solid', colour: '#3dff9a', colour2: '#9b5cff', width: 3, smoke: 'line', smokeColour: '#3dff9a', smokeColour2: '#9b5cff', smokeWidth: 2, glow: 20, stay: 0.6, speed: 0.7 }) },
+    { id: 'blood-moon', group: 'Colour along the tracer', name: 'Blood moon', sub: 'Red to black-red, slow', set: T({ style: 'solid', colour: '#ff2a3d', colour2: '#4a0010', width: 5, smoke: 'off', glow: 16, zoom: 1.3, speed: 0.6, stay: 0.6 }) },
+    { id: 'vaporwave', group: 'Colour along the tracer', name: 'Vaporwave', sub: 'Hot pink to teal, wavy trail', set: T({ style: 'neon', colour: '#ff71ce', colour2: '#01cdfe', core: '#ffffff', width: 4, smoke: 'wavy', smokeColour: '#b967ff', smokeWidth: 3, glow: 24, stay: 0.5 }) },
   ];
 
-  const headHits = (fx, size) => [{ zones: ['head'], weapons: GUNS, fx, armour: true, size }];
+  // Blood presets: each cell list says which hits play which effect.
+  const hit = (zones, fx, size, weapons, armour) => ({ zones, weapons: weapons || GUNS, fx, armour: armour !== false, size: size === undefined ? 0.5 : size });
   const BLOOD_PRESETS = [
-    { id: 'confetti', name: 'Confetti heads', fx: 'ent_dst_inflate_ball_clr', cells: headHits('ent_dst_inflate_ball_clr', 0.5) },
-    { id: 'balloons', name: 'Balloons', fx: 'ent_dst_inflate_ball', cells: headHits('ent_dst_inflate_ball', 0.5) },
-    { id: 'gumballs', name: 'Gumballs', fx: 'ent_dst_gen_gobstop', cells: headHits('ent_dst_gen_gobstop', 0.5) },
-    { id: 'cash', name: 'Cash', fx: 'ent_brk_banknotes', cells: headHits('ent_brk_banknotes', 0.5) },
-    { id: 'water', name: 'Water', fx: 'bul_water_heli', cells: headHits('bul_water_heli', 0.5) },
-    { id: 'oil', name: 'Oil everywhere', fx: 'liquid_splash_oil', cells: [{ zones: ['head', 'body'], weapons: GUNS, fx: 'liquid_splash_oil', armour: true, size: 0.5 }] },
-    { id: 'hatchet', name: 'Hatchet gore', fx: 'td_blood_hatchet', cells: headHits('td_blood_hatchet', 0.5) },
-    { id: 'gore', name: 'Heavy gore', fx: 'blood_chopper', cells: [{ zones: ['head', 'body'], weapons: GUNS, fx: 'blood_chopper', armour: false, size: 0.8 }] },
-    { id: 'fireworks', name: 'Fireworks', fx: 'scr_xmas_firework_burst_fizzle', cells: headHits('scr_xmas_firework_burst_fizzle', 0.5) },
-    { id: 'coins', name: 'Coin heads', fx: 'ent_brk_coins', cells: headHits('ent_brk_coins', 0.5) },
-    { id: 'none', name: 'No particles', fx: '-', cells: [{ zones: ['head', 'body', 'animals'], weapons: GUNS, fx: '-', armour: true, size: null }] },
-    { id: 'normal', name: 'Normal blood', fx: 'blood_entry', cells: [] },
+    { id: 'normal', group: 'Basics', name: 'Normal blood', sub: 'Everything back to blood', fx: 'blood_entry', cells: [] },
+    { id: 'none', group: 'Basics', name: 'No particles', sub: 'Hits play no effect', fx: '-', cells: [hit(['head', 'body', 'animals'], '-', null)] },
+    { id: 'confetti', group: 'Headshots', name: 'Confetti heads', sub: 'Confetti balloon pops', fx: 'ent_dst_inflate_ball_clr', cells: [hit(['head'], 'ent_dst_inflate_ball_clr')] },
+    { id: 'balloons', group: 'Headshots', name: 'Balloons', sub: 'Plain balloon pops', fx: 'ent_dst_inflate_ball', cells: [hit(['head'], 'ent_dst_inflate_ball')] },
+    { id: 'gumballs', group: 'Headshots', name: 'Gumballs', sub: 'Gumballs spill out', fx: 'ent_dst_gen_gobstop', cells: [hit(['head'], 'ent_dst_gen_gobstop')] },
+    { id: 'cash', group: 'Headshots', name: 'Cash', sub: 'Banknotes fly', fx: 'ent_brk_banknotes', cells: [hit(['head'], 'ent_brk_banknotes')] },
+    { id: 'coins', group: 'Headshots', name: 'Coins', sub: 'A burst of coins', fx: 'ent_brk_coins', cells: [hit(['head'], 'ent_brk_coins')] },
+    { id: 'water', group: 'Headshots', name: 'Water', sub: 'Water splash', fx: 'bul_water_heli', cells: [hit(['head'], 'bul_water_heli')] },
+    { id: 'fireworks', group: 'Headshots', name: 'Fireworks', sub: 'Needs a pack that adds it', fx: 'scr_xmas_firework_burst_fizzle', cells: [hit(['head'], 'scr_xmas_firework_burst_fizzle')] },
+    { id: 'stars', group: 'Headshots', name: 'Star flash', sub: 'A bright star', fx: 'muz_alternate_star', cells: [hit(['head'], 'muz_alternate_star')] },
+    { id: 'glass', group: 'Headshots', name: 'Glass', sub: 'Shattering glass', fx: 'glass_smash', cells: [hit(['head'], 'glass_smash')] },
+    { id: 'hatchet', group: 'Gore', name: 'Hatchet gore', sub: 'Hatchet blood on heads', fx: 'td_blood_hatchet', cells: [hit(['head'], 'td_blood_hatchet')] },
+    { id: 'gore', group: 'Gore', name: 'Heavy gore', sub: 'Rotor-blade blood everywhere', fx: 'blood_chopper', cells: [hit(['head', 'body'], 'blood_chopper', 0.8, GUNS, false)] },
+    { id: 'sniper-gore', group: 'Gore', name: 'Sniper gore', sub: 'Sniper headshot blood from any gun', fx: 'blood_entry_head_sniper', cells: [hit(['head'], 'blood_entry_head_sniper', 1, GUNS, false)], splatter: 1.5 },
+    { id: 'mist', group: 'Gore', name: 'Blood mist', sub: 'A red mist on every hit', fx: 'blood_mist', cells: [hit(['head', 'body'], 'blood_mist', 0.8, GUNS, false)] },
+    { id: 'oil', group: 'Whole body', name: 'Oil everywhere', sub: 'Black oil splashes', fx: 'liquid_splash_oil', cells: [hit(['head', 'body'], 'liquid_splash_oil')] },
+    { id: 'paint', group: 'Whole body', name: 'Paintball', sub: 'Paint splashes', fx: 'liquid_splash_paint', cells: [hit(['head', 'body'], 'liquid_splash_paint')] },
+    { id: 'slime', group: 'Whole body', name: 'Slime', sub: 'Green gloop', fx: 'liquid_splash_gloopy', cells: [hit(['head', 'body'], 'liquid_splash_gloopy')], splat: '#5cff3a' },
+    { id: 'robot', group: 'Themes', name: 'Robot', sub: 'Sparks on heads, oil on bodies', fx: 'ent_dst_electrical', cells: [hit(['head'], 'ent_dst_electrical'), hit(['body'], 'liquid_splash_oil')] },
+    { id: 'party', group: 'Themes', name: 'Party', sub: 'Confetti heads, balloon bodies', fx: 'ent_dst_inflate_ball_clr', cells: [hit(['head'], 'ent_dst_inflate_ball_clr'), hit(['body'], 'ent_dst_inflate_ball')] },
+    { id: 'money', group: 'Themes', name: 'Money', sub: 'Cash heads, coin bodies', fx: 'ent_brk_banknotes', cells: [hit(['head'], 'ent_brk_banknotes'), hit(['body'], 'ent_brk_coins')] },
+    { id: 'winter', group: 'Themes', name: 'Winter', sub: 'Snow heads, feather bodies', fx: 'ent_dst_snow_tombs', cells: [hit(['head'], 'ent_dst_snow_tombs'), hit(['body'], 'ent_sht_feathers')] },
+    { id: 'office', group: 'Themes', name: 'Office', sub: 'Paper everywhere', fx: 'ent_dst_office_paper', cells: [hit(['head', 'body'], 'ent_dst_office_paper')] },
+    { id: 'bubbly', group: 'Themes', name: 'Bubbly', sub: 'Champagne heads, foam bodies', fx: 'ent_brk_champagne_case', cells: [hit(['head'], 'ent_brk_champagne_case'), hit(['body'], 'bul_foam')] },
+  ];
+
+  // Effect browser categories, matched by name. The first match wins.
+  const CATEGORIES = [
+    ['fun', 'Fun', /inflate|gobstop|banknote|coins|feather|confetti|firework|champagne|office_paper|star/],
+    ['blood', 'Blood', /blood|gore|maul|shark|throat|stab/],
+    ['tracer', 'Tracers', /tracer/],
+    ['muzzle', 'Muzzle flash', /^muz_/],
+    ['impact', 'Bullet impacts', /^bul_|^bang_|^mel_|^scrape_/],
+    ['explosion', 'Explosions', /^exp_|explo/],
+    ['fire', 'Fire', /fire|flame|molotov|burn|torch|candle/],
+    ['smoke', 'Smoke and steam', /smoke|steam|fog|mist|vapour|exhaust|cig/],
+    ['water', 'Water', /water|splash|wtr_|drip|rain|wave|bubble|liquid|sprinkler/],
+    ['sparks', 'Sparks and electric', /spark|elec|weld/],
+    ['dust', 'Dust and dirt', /dust|dirt|sand|mud|debris/],
+    ['glass', 'Glass and breakables', /glass|brk_|dst_|shard|bottle/],
+    ['vehicle', 'Vehicles', /^veh_|wheel_|^water_boat|^water_jet|^water_amph|plane|heli/],
+    ['weather', 'Weather and sky', /^env_|snow|lens_|wind|leaves|petal|blossom/],
+  ];
+  const categoryOf = (id) => {
+    for (const [key, , re] of CATEGORIES) if (re.test(id)) return key;
+    return 'other';
+  };
+  const CATEGORY_LABEL = Object.fromEntries([...CATEGORIES.map(([k, l]) => [k, l]), ['other', 'Everything else']]);
+  const CATEGORY_KIND = { fun: 'confetti', blood: 'blood', tracer: 'star', muzzle: 'star', impact: 'puff', explosion: 'firework', fire: 'sparks',
+    smoke: 'foam', water: 'water', sparks: 'sparks', dust: 'mud', glass: 'glass', vehicle: 'oil', weather: 'snow', other: 'puff' };
+
+  const ACCENTS = [
+    { id: 'blue', label: 'Blue', value: '#3b82ff' },
+    { id: 'amber', label: 'Tracer amber', value: '#ff9a4d' },
+    { id: 'violet', label: 'Violet', value: '#9b6bff' },
+    { id: 'cyan', label: 'Cyan', value: '#22c7e8' },
+    { id: 'green', label: 'Green', value: '#2fd38a' },
+    { id: 'pink', label: 'Pink', value: '#ff4fa8' },
+    { id: 'red', label: 'Red', value: '#ff4d5e' },
   ];
 
   // ---------------------------------------------------------------- icons (static markup, no user text)
@@ -167,6 +238,18 @@
     search: LINE('M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13M15.5 15.5L20 20'),
     copy: LINE('M8 8h11v11H8zM5 16V5h11'),
     chevron: LINE('M9 6l6 6-6 6'),
+    home: LINE('M4 11l8-7 8 7M6 10v10h12V10M10 20v-6h4v6'),
+    tracer: LINE('M3 17L21 7M3 17l3-1M21 7l-3 1'),
+    muzzle: LINE('M3 12h7M10 8l4 4-4 4M15 6l2-2M15 18l2 2M17 12h4'),
+    explorer: LINE('M4 6h16M4 12h16M4 18h10M18 16l2 2 0 0M17 17a2 2 0 1 0 0 .1'),
+    settings: LINE('M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6M19 12l2-1-1-3-2 .5-1.5-1.5L17 5l-3-1-1 2h-2L10 4 7 5l.5 2L6 8.5 4 8l-1 3 2 1v1l-2 1 1 3 2-.5L7.5 17 7 19l3 1 1-2h2l1 2 3-1-.5-2 1.5-1.5 2 .5 1-3-2-1z'),
+    image: LINE('M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4M15 9a1 1 0 1 0 0 .1'),
+    grid: LINE('M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z'),
+    list: LINE('M8 6h12M8 12h12M8 18h12M4 6h.5M4 12h.5M4 18h.5'),
+    layers: LINE('M12 4l9 5-9 5-9-5zM3 14l9 5 9-5'),
+    drop: LINE('M12 3c3 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 3-6.5 6-11z'),
+    info: LINE('M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 11v6M12 7.5v.5'),
+    flip: LINE('M7 4v16M7 4l-3 3M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3'),
   };
   const icon = (name) => ICONS[name] || '';
 
@@ -176,8 +259,9 @@
 
   root.BfxData = {
     EFFECTS, GROUPS, EFFECT_BY_ID, effectLabel, effectKind, ZONES, WEAPONS, GUNS, STOCK, SWATCHES,
-    TRACER_PRESETS, BLOOD_PRESETS, fxIcon, icon, LOGO,
+    TRACER_PRESETS, BLOOD_PRESETS, fxIcon, icon, LOGO, CATEGORIES, categoryOf, CATEGORY_LABEL, CATEGORY_KIND, ACCENTS,
     BASE_DAT_B64: '@BASE_DAT@',
     CORE_FX: '@EFFECTS@',
+    LONG_FX: '@LONG@',
   };
 })(typeof self !== 'undefined' ? self : this);
