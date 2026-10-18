@@ -518,6 +518,235 @@ def gen_stylized():
 
 
 # ═══════════════════════════════════════════════════════
+#  PHRASES & MASHES
+#  styles like ifeelsorryforyouxx, nevergondisrespectme,
+#  loudrapmusic, assault5, balenciaga8917, xcvbjxxzcd, s8274
+# ═══════════════════════════════════════════════════════
+
+def _small_number():
+    # mostly 2-3 digits, like assault5 / kills98 / static915 / balenciaga8917
+    return str(random.randint(0, 10 ** random.choice((1, 2, 2, 2, 3, 3, 4)) - 1))
+
+
+def _tail(name, odds_digits=0.15, tails=("lol", "xd", "xx", "sorry", "fr", "rn", "ngl", "tbh")):
+    if len(name) > 26:
+        return name                                 # keep room under Discord's 32
+    roll = random.random()
+    if roll < odds_digits:
+        return name + _small_number()
+    if roll < odds_digits + 0.25:
+        return name + random.choice(tails)
+    return name
+
+
+# ── sentence-style phrases ──
+
+NEVER_OPENERS = ["nevergon", "neverlet", "stop", "dont", "cant", "wont", "whydid", "letme", "imgonna",
+                 "imnot", "stillgon", "justgon", "tryna", "pleasedont", "nobodycan", "icant", "youcant"]
+NEVER_VERBS = ["disrespect", "forget", "miss", "leave", "trust", "fight", "chase", "save", "help", "call",
+               "text", "replace", "outplay", "outaim", "carry", "copy", "ignore", "follow", "doubt", "bother",
+               "rush", "stop", "find", "beat", "catch", "touch", "fix", "change", "hear", "understand"]
+NEVER_OBJECTS = ["me", "you", "us", "them", "her", "him", "again", "anymore", "everyone", "nobody",
+                 "today", "tonight", "mylife", "myteam", "thegame"]
+
+HEY_OPENERS = ["stop", "hey", "bye", "sorry", "relax", "chill", "calmdown", "goaway", "move", "shush", "wakeup"]
+HEY_YOU = ["you", "you", "u"]
+HEY_NOUNS = ["freak", "nerd", "loser", "weirdo", "clown", "goofy", "bot", "noob", "rat", "goblin", "gremlin",
+             "npc", "dork", "creep", "bozo", "toddler", "baby", "rookie", "tryhard", "sweat", "camper"]
+
+GERUNDS = ["aiming", "speedrunning", "grinding", "tryharding", "sweating", "camping", "farming", "chilling",
+           "lurking", "spectating", "carrying", "clutching", "dodging", "lagging", "trolling", "gaming",
+           "coping", "yapping", "sleeping", "crying", "laughing", "vibing", "drifting", "rushing", "sniping",
+           "flexing", "posting", "missing", "winning", "losing", "thinking", "overthinking", "scrolling",
+           "skating", "driving", "dancing", "fishing", "cooking", "building", "racing", "spinning"]
+GERUND_ENDS = ["toohard", "allday", "allnight", "everyday", "forfun", "nonstop", "alone", "again",
+               "forever", "tooslow", "toofast", "sohard", "atnight", "inpublic", "onpurpose", "fornoreason",
+               "247", "foryou", "withyou", "withoutyou", "likeapro", "likeabot", "inmysleep", "badly"]
+GERUND_TAILS = ("sorry", "lol", "xd", "xx", "rn", "fr", "ngl", "again")
+
+FEEL_OPENERS = ["ifeel", "ifeel", "ifeel", "ifelt", "ialwaysfeel", "ineverfeel", "istillfeel", "dontfeel"]
+FEELINGS = ["sorry", "bad", "safe", "sad", "nothing", "free", "lost", "seen", "tired", "alive", "numb",
+            "great", "weird", "special", "lucky", "happy", "calm", "small", "cold", "home", "save"]
+FEEL_LINKS = ["for", "with", "around", "without"]
+FEEL_TARGETS = ["you", "you", "u", "them", "her", "him", "everyone", "nobody", "myself"]
+
+
+def gen_phrase():
+    style = random.random()
+    if style < 0.3:
+        name = random.choice(NEVER_OPENERS) + random.choice(NEVER_VERBS) + random.choice(NEVER_OBJECTS)
+        return _tail(name, 0.1)
+    if style < 0.5:
+        name = random.choice(HEY_OPENERS) + random.choice(HEY_YOU) + random.choice(HEY_NOUNS)
+        return _tail(name, 0.35)                       # stopyoufreak81
+    if style < 0.75:
+        name = random.choice(GERUNDS) + random.choice(GERUND_ENDS)
+        return _tail(name, 0.1, GERUND_TAILS)          # aimingtoohardsorry
+    if random.random() < 0.2:
+        name = "youmakemefeel" + random.choice(FEELINGS)
+    else:
+        name = (random.choice(FEEL_OPENERS) + random.choice(FEELINGS)
+                + random.choice(FEEL_LINKS) + random.choice(FEEL_TARGETS))
+    return _tail(name, 0.05, ("xx", "xx", "lol", "fr", "tbh"))   # ifeelsorryforyouxx
+
+
+# ── two-word combos ──
+
+DUO_ADJS = ["loud", "silly", "famous", "nice", "quiet", "goofy", "lazy", "angry", "sleepy", "sneaky", "lucky",
+            "rich", "broke", "tired", "random", "fake", "real", "toxic", "humble", "petty", "spooky", "cursed",
+            "cozy", "crazy", "sweaty", "salty", "cold", "brave", "evil", "tiny", "giant", "golden", "midnight",
+            "retired", "certified", "local", "average", "professional", "unpaid", "lonely", "legendary"]
+DUO_NOUNS = ["rapmusic", "guys", "gamers", "resellers", "sneakerheads", "drivers", "neighbors", "cowboys",
+             "pirates", "ninjas", "snipers", "campers", "goblins", "clowns", "frogs", "cats", "ducks", "twins",
+             "players", "streamers", "tryhards", "ghosts", "aliens", "robots", "npcs", "bots", "legends",
+             "heroes", "villains", "outlaws", "aiming", "plays", "vibes", "energy", "behavior", "moments",
+             "music", "beats", "drip", "fits", "kicks", "hours", "nights", "mornings", "thoughts"]
+DUO_PREFIXES = ["force", "forced", "miss", "mister", "mr", "sir", "auto", "anti", "super", "ultra", "semi",
+                "notso", "lowkey", "highkey", "always", "never", "barely", "almost", "fully", "half"]
+DUO_STATES = ["passive", "sync", "growing", "pointing", "aiming", "sleeping", "trying", "loading", "buffering",
+              "lagging", "glitching", "thinking", "waiting", "crashing", "spawning", "respawn", "reload",
+              "restart", "update", "offline", "online", "paused", "muted", "silent", "focus", "logout",
+              "afk", "ready", "awake", "chosen", "invisible", "patient", "nervous"]
+DUO_SCENES = ["fortnite", "roblox", "minecraft", "valorant", "warzone", "apex", "gta", "rocketleague",
+              "fivem", "overwatch", "rust", "season", "ranked", "lobby", "server", "arena", "lategame"]
+DUO_SLANG = ["tryhard", "sweat", "mvp", "goat", "demon", "god", "addict", "veteran", "rookie", "legend",
+             "enjoyer", "hater", "main", "grinder", "camper", "noob", "pro", "king", "queen", "menace", "carry"]
+
+
+def gen_duo():
+    style = random.random()
+    if style < 0.45:
+        name = random.choice(DUO_ADJS) + random.choice(DUO_NOUNS)        # loudrapmusic
+    elif style < 0.75:
+        name = random.choice(DUO_PREFIXES) + random.choice(DUO_STATES)   # forcepassive, missgrowing
+    else:
+        name = random.choice(DUO_SCENES) + random.choice(DUO_SLANG)      # seasonmvp
+        if random.random() < 0.15:
+            name += random.choice(DUO_SLANG)                             # fortnitetryhardgod
+    return _tail(name, 0.12, ("lol", "xd", "xx", "fr"))
+
+
+# ── word + number ──
+
+NUM_WORDS = ["assault", "static", "sadist", "loser", "kills", "niceguy", "savage", "menace", "psycho",
+             "reaper", "sniper", "phantom", "outlaw", "bandit", "rogue", "venom", "toxic", "chaos", "havoc",
+             "riot", "vandal", "rebel", "goblin", "gremlin", "demon", "ghost", "killer", "headshot", "frag",
+             "clutch", "carry", "tryhard", "sweat", "noob", "glitch", "lag", "ping", "aimbot", "camper",
+             "rusher", "lurker", "creep", "weirdo", "freak", "dork", "nerd", "clown", "joker", "villain",
+             "maniac", "lunatic", "anarchy", "silent", "random", "loner", "nobody", "stranger", "unknown",
+             "anon", "seasonmvp", "sillyguy", "badguy", "goodboy", "badboy", "oldman", "bigman", "lilbro"]
+
+
+def gen_wordnum():
+    return random.choice(NUM_WORDS) + _small_number()
+
+
+# ── fashion brands ──
+
+BRANDS = ["balenciaga", "maisonmargiela", "margiela", "rickowens", "chromehearts", "bape", "stussy",
+          "supreme", "prada", "gucci", "versace", "givenchy", "vetements", "rafsimons", "yohji",
+          "commedesgarcons", "saintlaurent", "dior", "fendi", "moncler", "stoneisland", "acnestudios",
+          "corteiz", "trapstar", "palace", "carhartt", "kith", "fearofgod", "offwhite", "amiri",
+          "gallerydept", "hellstar", "vlone", "yeezy", "newbalance", "salomon", "arcteryx", "vinted",
+          "depop", "grailed", "stockx"]
+BRAND_SUBJECTS = ["devil", "mom", "dad", "grandma", "teacher", "nobody", "everyone", "someone", "he",
+                  "she", "mycat", "mydog", "unc", "auntie", "thekid", "neighbor"]
+BRAND_VERBS = ["larps", "wears", "loves", "hates", "resells", "buys", "rocks", "needs", "wants",
+               "fakes", "thrifts", "copes", "collects", "dreamsof"]
+
+
+def gen_brand():
+    brand = random.choice(BRANDS)
+    style = random.random()
+    if style < 0.6:
+        return brand + str(random.randint(0, 10 ** random.choice((2, 2, 3, 4)) - 1))   # balenciaga8917
+    if style < 0.85:
+        return random.choice(BRAND_SUBJECTS) + random.choice(BRAND_VERBS) + brand       # devillarpsbalenciaga
+    return random.choice(["only", "just", "all", "real", "fake", "vintage", "thrifted", "used"]) + brand
+
+
+# ── keyboard mash ──
+
+KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+KEY_POS = {c: (r, i) for r, row in enumerate(KEY_ROWS) for i, c in enumerate(row)}
+KEY_NEAR = {c: [d for d, (r2, i2) in KEY_POS.items() if d != c and abs(r2 - r) <= 1 and abs(i2 - i) <= 1]
+            for c, (r, i) in KEY_POS.items()}
+
+
+def _key_walk(length, start=None):
+    c = start or random.choice("zxcvbnmasdfgqwer")
+    out = [c]
+    while len(out) < length:
+        roll = random.random()
+        if roll < 0.6:
+            c = random.choice(KEY_NEAR[c])
+        elif roll < 0.75:
+            pass                                    # hit the same key again (xx)
+        else:
+            c = random.choice(KEY_ROWS[KEY_POS[c][0]])
+        out.append(c)
+    return "".join(out)
+
+
+def gen_mash():
+    style = random.random()
+    if style < 0.4:
+        return _key_walk(random.randint(5, 10))                          # xcvbjxxzcd, xwrza
+    if style < 0.6:
+        a = random.choice("xzcvbqwas")
+        b = random.choice(KEY_NEAR[a])
+        return (a + b) * random.randint(4, 7) + _key_walk(random.randint(1, 2), a)   # xzxzxzxzxzxzxcx
+    if style < 0.75:
+        a = random.choice("zxcvqwasd")
+        b = random.choice(KEY_NEAR[a])
+        name = a * 3 + b * 3 + random.choice(["", "lol", "xd", "lmao"])
+        return name + (random.choice(DIGITS) if random.random() < 0.6 else "")       # zzzxxxlol8
+    if style < 0.9:
+        return random.choice(["asd", "qwe", "zxc", "sdf", "xcv"]) + _key_walk(random.randint(2, 4))  # asdjrt
+    base = _key_walk(random.randint(3, 4))
+    return base * 2 + random.choice(KEY_NEAR[base[-1]])                  # xczvxczvc
+
+
+# ── laugh mash ──
+
+LAUGHS = ["haha", "hehe", "xd", "lol", "lmao", "xoxo", "kek", "jaja", "rofl", "lmfao", "hihi", "xdd", "ez", "gg"]
+
+
+def gen_laugh():
+    parts = random.sample(LAUGHS, random.choice((2, 2, 3)))
+    name = "".join(parts)
+    return name + (str(random.randint(1, 99)) if random.random() < 0.6 else "")      # hahaxdlol89, xoxolol19
+
+
+# ── letter + digits, long numbers ──
+
+def gen_l4n():
+    letter, digits = random.choice(LETTERS), _digits(4)
+    return letter + digits if random.random() < 0.5 else digits + letter            # s8274, 1829s
+
+
+def gen_longnum():
+    return str(random.randint(1, 9)) + _digits(random.randint(5, 8))                 # 74627521
+
+
+# ── .com names ──
+
+def gen_dotcom():
+    style = random.random()
+    if style < 0.35:
+        base = random.choice(DUO_ADJS) + random.choice(DUO_NOUNS)
+    elif style < 0.6:
+        base = random.choice(BRANDS)
+    elif style < 0.8:
+        base = random.choice(NUM_WORDS)
+    else:
+        base = random.choice(GERUNDS) + random.choice(GERUND_ENDS)
+    if random.random() < 0.3:
+        base += base[-1]                                                 # doubled last letter
+    return base + random.choice([".com", ".com", ".com", ".net", ".org", ".gg", ".xyz", ".tv"])
+
+
+# ═══════════════════════════════════════════════════════
 #  FORMAT REGISTRY
 # ═══════════════════════════════════════════════════════
 
@@ -612,6 +841,28 @@ FORMATS = [
          platforms=BOTH, roblox_odds=54),
     _fmt("stylized", "Words", "Stylized", "cigareto", "a word with a stylized ending (cigareto, chocolato, velveto)", None,
          gen_stylized, ("words",), platforms=BOTH, roblox_odds=5),
+
+    # not measured yet: odds None until a run shows how many come back free
+    _fmt("phrase", "Phrases & mashes", "Phrase", "aimingtoohardsorry",
+         "a short sentence (ifeelsorryforyouxx, nevergondisrespectme, stopyoufreak81)", None, gen_phrase, ("mix",),
+         platforms=BOTH),
+    _fmt("duo", "Phrases & mashes", "Duo", "loudrapmusic", "two words (loudrapmusic, forcepassive, seasonmvp)", None,
+         gen_duo, ("mix",), platforms=BOTH),
+    _fmt("wordnum", "Phrases & mashes", "Word + num", "assault5", "a word + 1-4 digits (assault5, static915, loser872)",
+         None, gen_wordnum, ("mix",), platforms=BOTH),
+    _fmt("brand", "Phrases & mashes", "Brand", "balenciaga8917",
+         "a fashion brand + digits, or a phrase around one (maisonmargiela82, devillarpsbalenciaga)", None, gen_brand,
+         ("mix",), platforms=BOTH),
+    _fmt("mash", "Phrases & mashes", "Key mash", "xcvbjxxzcd", "keyboard mash (xcvbjxxzcd, asdjrt, xzxzxzxzxcx, zzzxxxlol8)",
+         None, gen_mash, ("mix",), platforms=BOTH),
+    _fmt("laugh", "Phrases & mashes", "Laugh mash", "hahaxdlol89", "laughs stuck together (hahaxdlol89, xoxolol19)", None,
+         gen_laugh, ("mix",), platforms=BOTH),
+    _fmt("l4n", "Phrases & mashes", "1L + 4N", "s8274", "a letter + 4 digits, either way round (s8274, 1829s)", None,
+         gen_l4n, ("mix",), platforms=BOTH),
+    _fmt("longnum", "Phrases & mashes", "Long number", "74627521", "6 to 9 digits (74627521)", None, gen_longnum,
+         ("mix",), platforms=BOTH),
+    _fmt("dotcom", "Phrases & mashes", ".com", "famousguys.com", "a word or brand + .com / .gg / .net (famousguys.com)",
+         None, gen_dotcom, ("mix",)),
 ]
 FORMAT_BY_ID = {f["id"]: f for f in FORMATS}
 

@@ -14,6 +14,7 @@ const MOCK_SWEEPS = {
 const MOCK_ROBLOX = {
   rsemi3: 0, word4: 0, all_4n: 0, all_4l: 0, all_4c: 0, rsemi4: 32, "5c": 26, "5l": 0, "5p": 0, "5n": 0, "3m": 0, "3s": 0,
   xny: 97, compound: 89, stretched: 8, hashtag: 40, misspell: 25, split: 0, mood: 32, twisted: 30, alphanum: 54, stylized: 5,
+  phrase: null, duo: null, wordnum: null, brand: null, mash: null, laugh: null, l4n: null, longnum: null,
 };
 const MOCK_ROBLOX_ONLY = new Set(["rsemi3", "rsemi4"]);
 const MOCK_FORMATS = [
@@ -49,6 +50,15 @@ const MOCK_FORMATS = [
   ["twisted", "Words", "Twisted", "fragmenteds", "word with a twisted -ing / -ed ending", null, ["words"]],
   ["alphanum", "Words", "AlphaNum", "1x1y1", "patterns like 1x1y1 or 0x hex", null, ["words"]],
   ["stylized", "Words", "Stylized", "cigareto", "a word with a stylized ending (cigareto, chocolato, velveto)", null, ["words"]],
+  ["phrase", "Phrases & mashes", "Phrase", "aimingtoohardsorry", "a short sentence (ifeelsorryforyouxx, nevergondisrespectme, stopyoufreak81)", null, ["mix"]],
+  ["duo", "Phrases & mashes", "Duo", "loudrapmusic", "two words (loudrapmusic, forcepassive, seasonmvp)", null, ["mix"]],
+  ["wordnum", "Phrases & mashes", "Word + num", "assault5", "a word + 1-4 digits (assault5, static915, loser872)", null, ["mix"]],
+  ["brand", "Phrases & mashes", "Brand", "balenciaga8917", "a fashion brand + digits, or a phrase around one (maisonmargiela82, devillarpsbalenciaga)", null, ["mix"]],
+  ["mash", "Phrases & mashes", "Key mash", "xcvbjxxzcd", "keyboard mash (xcvbjxxzcd, asdjrt, xzxzxzxzxcx, zzzxxxlol8)", null, ["mix"]],
+  ["laugh", "Phrases & mashes", "Laugh mash", "hahaxdlol89", "laughs stuck together (hahaxdlol89, xoxolol19)", null, ["mix"]],
+  ["l4n", "Phrases & mashes", "1L + 4N", "s8274", "a letter + 4 digits, either way round (s8274, 1829s)", null, ["mix"]],
+  ["longnum", "Phrases & mashes", "Long number", "74627521", "6 to 9 digits (74627521)", null, ["mix"]],
+  ["dotcom", "Phrases & mashes", ".com", "famousguys.com", "a word or brand + .com / .gg / .net (famousguys.com)", null, ["mix"]],
 ].map(([id, group, code, example, desc, odds, picks]) => {
   const f = { id, group, code, example, desc, odds, picks };
   if (MOCK_SWEEPS[id]) Object.assign(f, { sweep: true, size: MOCK_SWEEPS[id][0], left: MOCK_SWEEPS[id][1] });
