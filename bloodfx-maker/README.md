@@ -57,6 +57,16 @@ Recolours every particle whose name contains `muz` (or other text you type), wit
 3. Put `bloodfx.dat` in `%localappdata%\FiveM\FiveM.app\citizen\common\data\effects`. Make the folders if they're missing, and back up any `bloodfx.dat` already there.
 4. Start FiveM. Servers with strict client-mod rules ignore these files.
 
+## Windows app
+
+`desktop/` wraps the same interface in Electron as `BloodFX-Maker-2.0.0-portable.exe`. It's portable: no installer, just run it. On top of the web page it has:
+
+- **Install to FiveM**: writes the pack to `mods` and `bloodfx.dat` to `citizen\common\data\effects`, backs up any file it replaces, and offers to turn off other packs that change the tracer (they're renamed to `.rpf.disabled`).
+- The Install page lists every pack in `mods`, shows which ones change the tracer, turns packs on and off, and restores backups. Restoring puts replaced files back, removes files the install added, and turns packs back on.
+- Recent packs, Windows open and save dialogs, opening a `.rpf` passed on the command line, and fonts that work offline.
+
+Backups and settings are kept in `%APPDATA%\BloodFX Maker`. The exe isn't code-signed, so Windows SmartScreen may warn the first time; choose More info, then Run anyway.
+
 ## Limits
 
 - Not tested in game. Every output was checked by opening it again and by exporting the rebuilt `core.ypt` with CodeWalker, for all 12 reference packs.
@@ -71,5 +81,17 @@ node src/build.js          # writes index.html from src/
 node test/test_dat.js      # bloodfx.dat editing, on every bloodfx.dat in [bloodfx-packs]
 node test/test_tracer.js   # tracer patching on every core.ypt in [bloodfx-packs], plus a nested .rpf round trip
 ```
+
+The Windows app:
+
+```sh
+cd desktop
+npm install
+npm start                  # runs the app from source
+npm run dist               # dist/BloodFX-Maker-2.0.0-portable.exe; builds on Linux without Wine
+npm run icon               # redraws build/icon.ico and build/icon.png from the logo in src/ui/data.js
+```
+
+`node src/build.js --desktop` writes `desktop/app/` (the window's files, with pako and the fonts copied from `desktop/node_modules`); `npm start` and `npm run dist` run it first. `desktop/main.js` opens the window and answers the window's requests, `preload.js` is the only bridge between them, `fivem.js` finds FiveM and installs, backs up and restores, and `rpfscan.js` reads just the folder tables of the packs in `mods` to see which ones hold a `core.ypt`. `scripts/after-pack.js` sets the exe's icon and version details with resedit, since electron-builder's own step needs Wine on Linux.
 
 `src/core/bfxcore.js` holds the RPF, resource, `core.ypt` and `bloodfx.dat` code and runs in browsers and Node. `src/ui/` is the interface: `index.html` and `app.css` are the frame, `app.js` holds the state, undo, loading and saving, and `pages/` has one file per page. `preview.js` draws the preview, `art.js` the thumbnails, and `platform.js` hides the difference between a browser, Claude and the Windows app. The build inlines everything into one page, with `src/base_bloodfx.dat`, `src/core_effects.json` (the effect names in GTA's standard `core.ypt`) and `src/long_effects.json` (the standard effects that loop or run longer than 4 s).

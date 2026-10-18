@@ -11,7 +11,7 @@
     { id: 'blood', label: 'Blood', icon: 'drop', title: 'Blood', text: 'Pick what plays when a bullet hits someone, for each body part and weapon type.' },
     { id: 'muzzle', label: 'Muzzle flash', icon: 'muzzle', title: 'Muzzle flash', text: "Recolour the flash at the end of the gun. It's saved into the same tracer pack." },
     { id: 'explorer', label: 'Pack explorer', icon: 'explorer', title: 'Pack explorer', text: "Look inside the pack's core.ypt: every effect, texture and file." },
-    { id: 'install', label: 'Install', icon: 'install', title: 'Install', text: 'Where the two files go, and a one-click install in the Windows app.' },
+    { id: 'install', label: 'Install', icon: 'install', title: 'Install', text: P.canInstall ? 'Install both files into FiveM in one click. Every install keeps a backup.' : 'Where the two files go. The Windows app installs them in one click.' },
     { id: 'settings', label: 'Settings', icon: 'settings', title: 'Settings', text: 'Accent colour, preview and tips.' },
   ];
   const MOTION = ['glow', 'zoom', 'far', 'speed', 'stay', 'life'];
@@ -648,13 +648,13 @@
         if (!files) return;
         idle();
         const scan = await P.fivem.scan();
-        const others = (scan.mods || []).filter((m) => m.enabled && m.hasCore !== false && m.name.toLowerCase() !== files.rpfName.toLowerCase());
+        const others = (scan.mods || []).filter((m) => m.enabled && m.hasCore === true && m.name.toLowerCase() !== files.rpfName.toLowerCase());
         let disable = [];
         if (others.length) {
           const pick = await confirmBox({
             title: 'Other packs also change the tracer',
             text: 'FiveM only uses one core.ypt pack at a time. Turn these off so yours is the one that plays? They are renamed to .disabled, and you can turn them back on from the Install page.',
-            items: others.map((m) => m.name + (m.hasCore === null ? ' (couldn’t check inside)' : '')),
+            items: others.map((m) => m.name),
             buttons: [{ label: 'Cancel', value: null, ghost: true }, { label: 'Leave them on', value: 'keep' }, { label: 'Turn them off and install', value: 'off', primary: true }],
           });
           if (!pick) return;
@@ -665,7 +665,7 @@
         savedAt = history.current;
         renderNote();
         changed('install');
-        toast('ok', 'Installed. Start FiveM to see it.', [`${files.rpfName} → mods`, 'bloodfx.dat → citizen\\common\\data\\effects', res.backup ? 'Old files backed up' : null, disable.length ? `Turned off ${plural(disable.length, 'pack')}` : null].filter(Boolean).join(' · '),
+        toast('ok', 'Installed. Start FiveM to see it.', [`${files.rpfName} → mods`, 'bloodfx.dat → citizen\\common\\data\\effects', res.replaced ? `Backed up ${plural(res.replaced, 'old file')}` : null, disable.length ? `Turned off ${plural(disable.length, 'pack')}` : null].filter(Boolean).join(' · '),
           [{ label: 'Install page', run: () => go('install') }]);
       } catch (e) {
         toast('bad', "Couldn't install", e && e.message ? e.message : String(e));

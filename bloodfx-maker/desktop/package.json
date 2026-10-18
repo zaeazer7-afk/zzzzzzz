@@ -1,0 +1,64 @@
+{
+  "name": "bloodfx-maker",
+  "productName": "BloodFX Maker",
+  "version": "2.0.0",
+  "description": "Custom tracers, hit effects and muzzle flashes for FiveM",
+  "main": "main.js",
+  "author": "BloodFX Maker",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "app": "node ../src/build.js --desktop",
+    "start": "npm run app && electron .",
+    "icon": "electron scripts/make-icon.js",
+    "dist": "npm run app && electron-builder --win portable --x64"
+  },
+  "devDependencies": {
+    "@fontsource/barlow": "5.3.0",
+    "@fontsource/big-shoulders-display": "5.3.0",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "electron": "44.5.1",
+    "electron-builder": "26.17.0",
+    "pako": "2.1.0",
+    "resedit": "3.1.0"
+  },
+  "build": {
+    "appId": "app.bloodfxmaker.desktop",
+    "productName": "BloodFX Maker",
+    "copyright": "BloodFX Maker",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "fivem.js",
+      "rpfscan.js",
+      "app/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asar": true,
+    "electronLanguages": [
+      "en-US"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "BloodFX-Maker-${version}-portable.exe"
+    },
+    "afterPack": "scripts/after-pack.js",
+    "compression": "maximum"
+  }
+}
