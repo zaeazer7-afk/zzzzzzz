@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NameVault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow g1"></div>
+<div class="bg-glow g2"></div>
+<canvas id="fx"></canvas>
+
+<div id="app">
+  <aside class="sidebar">
+    <div class="logo-block">
+      <img src="logo.png" alt="NameVault" class="logo-img">
+    </div>
+
+    <nav class="main-nav">
+      <div class="nav-label">Find names</div>
+      <button class="nav-item active" data-page="scan" data-platform="discord">
+        <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></svg>
+        <span>Discord</span>
+      </button>
+      <button class="nav-item" data-page="scan" data-platform="roblox">
+        <svg viewBox="0 0 24 24"><path d="M6.5 2.8 21.2 6.5l-3.7 14.7L2.8 17.5zM10.4 10.4l3.2.8-.8 3.2-3.2-.8z"/></svg>
+        <span>Roblox</span>
+      </button>
+      <div class="nav-label">Your names</div>
+      <button class="nav-item" data-page="hits">
+        <svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.9L22 9.6l-5.4 4.8L18.2 22 12 18.3 5.8 22l1.6-7.6L2 9.6l7.1-.7z"/></svg>
+        <span>Hits</span>
+        <span class="badge zero" id="nav-hits-badge">0</span>
+      </button>
+      <button class="nav-item" data-page="proxies">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 0c3 3 3 17 0 20m0-20c-3 3-3 17 0 20M2 12h20"/></svg>
+        <span>Proxies</span>
+      </button>
+      <button class="nav-item" data-page="vault">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16v13H4zM8 7V5a4 4 0 0 1 8 0v2m-4 6v3"/></svg>
+        <span>Vault</span>
+      </button>
+    </nav>
+
+    <div class="side-spacer"></div>
+
+    <button class="conn-card" id="conn-card" title="Open proxy settings">
+      <div class="conn-row">
+        <span class="conn-dot" id="conn-dot"></span>
+        <span class="conn-label" id="conn-label">Direct</span>
+      </div>
+      <div class="conn-sub" id="conn-sub">no proxies loaded</div>
+    </button>
+    <div class="kbd-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> start · <kbd>Esc</kbd> stop</div>
+  </aside>
+
+  <main class="content">
+    <header class="topbar">
+      <div>
+        <h1 id="page-title">Scanner</h1>
+        <p id="page-sub">Pick what to look for, choose how many, press Start</p>
+      </div>
+      <div class="topbar-right">
+        <div class="timer" id="run-timer">00:00</div>
+        <div class="live-pill" id="live-pill"><span class="pulse"></span><span id="live-text">IDLE</span></div>
+      </div>
+    </header>
+
+    <!-- ═════════ SCANNER ═════════ -->
+    <section id="page-scan" class="page active">
+      <div class="scan-grid">
+
+        <div class="panel controls" id="controls">
+          <div class="controls-body">
+            <div class="seg" id="kind-seg" style="--n:2">
+              <button data-kind="gen" class="active">Find new names</button>
+              <button data-kind="list">Check my list</button>
+              <span class="seg-thumb"></span>
+            </div>
+
+            <div class="gen-only">
+              <div class="step"><span class="step-n">1</span><span>What to look for</span></div>
+              <div class="quick" id="quick-picks">
+                <button data-pick="best">Best odds</button>
+                <button data-pick="semi4">Semi 4s</button>
+                <button data-pick="numbers">Numbers</button>
+                <button data-pick="words">Words</button>
+                <button data-pick="every4" title="Checks every 4-character name once: .10a, 2190, zuxk, cm3a styles">All 4-char</button>
+              </div>
+              <div class="picked" id="picked"></div>
+              <button class="customize-toggle" id="btn-customize">
+                <span class="chev">▸</span><span>Customize formats</span>
+              </button>
+              <div class="customize" id="customize" hidden>
+                <div class="customize-head">
+                  <span>Tap any format to add or remove it</span>
+                  <button class="link-btn" id="btn-clear-formats">clear all</button>
+                </div>
+                <div class="fmt-groups" id="fmt-groups"></div>
+              </div>
+              <div class="fmt-info" id="fmt-info"></div>
+
+              <div class="step"><span class="step-n">2</span><span>How many</span></div>
+              <input type="text" id="count-field" value="1000" inputmode="numeric" spellcheck="false" placeholder="e.g. 500, 10k or ∞">
+              <div class="presets">
+                <button data-n="100">100</button>
+                <button data-n="1000">1k</button>
+                <button data-n="10000">10k</button>
+                <button data-n="∞" title="Keeps going until you press Stop">∞</button>
+              </div>
+              <div class="estimate" id="estimate"></div>
+            </div>
+
+            <div class="list-only">
+              <div class="step">
+                <span class="step-n">1</span><span>Your names</span>
+                <span class="label-note" id="list-count">0 names</span>
+              </div>
+              <textarea id="list-box" spellcheck="false" placeholder="one per line or comma separated&#10;4316_&#10;4804_&#10;cm3a"></textarea>
+              <div class="list-tools">
+                <button class="btn sm" id="btn-open-txt">Open .txt file</button>
+                <button class="btn sm" id="btn-clear-list">Clear</button>
+                <input type="file" id="file-input" accept=".txt,text/plain" hidden>
+              </div>
+              <p class="hint">Every name is checked exactly as written — good for re-checking old hits or a list someone gave you.</p>
+            </div>
+
+            <details class="advanced" id="advanced">
+              <summary>Speed &amp; options</summary>
+              <div class="adv-body">
+                <div class="panel-label row-between">
+                  <span>Parallel checks</span>
+                  <span class="label-note" id="workers-note">max speed</span>
+                </div>
+                <div class="speed-seg" id="speed-seg">
+                  <button data-w="10">10</button>
+                  <button data-w="25">25</button>
+                  <button data-w="50" class="active">50</button>
+                </div>
+                <label class="toggle-row gen-only">
+                  <input type="checkbox" id="skip-checked" checked>
+                  <span class="toggle"></span>
+                  <span>Skip names already in checked.txt</span>
+                </label>
+                <label class="toggle-row">
+                  <input type="checkbox" id="rare-alert" checked>
+                  <span class="toggle"></span>
+                  <span>Chime when a 4-character name is free</span>
+                </label>
+              </div>
+            </details>
+          </div>
+
+          <div class="controls-foot">
+            <button class="btn-go" id="btn-generate">
+              <span class="go-shine"></span>
+              <svg class="ic-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></svg>
+              <svg class="ic-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              <span class="go-label">START SCAN</span>
+            </button>
+            <button class="link-btn foot-link gen-only" id="btn-make-list">or just save names to a .txt (no checking)</button>
+            <div class="gen-status" id="gen-status">Ready</div>
+          </div>
+        </div>
+
+        <div class="scan-main">
+          <div class="panel hero" id="hero">
+            <div class="scanline"></div>
+            <div class="hero-left">
+              <div class="hero-kicker" id="hero-kicker">// awaiting target</div>
+              <div class="hero-name" id="reveal-name">namevault</div>
+              <div class="hero-meta">
+                <span class="chip" id="reveal-chip">IDLE</span>
+                <span class="hero-progress" id="reveal-progress">press start to begin</span>
+              </div>
+            </div>
+            <div class="ring-wrap">
+              <svg class="ring" viewBox="0 0 120 120">
+                <defs>
+                  <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#a78bfa"/>
+                    <stop offset="100%" stop-color="#5865f2"/>
+                  </linearGradient>
+                </defs>
+                <circle class="ring-bg" cx="60" cy="60" r="52"/>
+                <circle class="ring-fg" id="ring-fg" cx="60" cy="60" r="52"/>
+              </svg>
+              <div class="ring-text">
+                <div class="ring-pct" id="ring-pct">0%</div>
+                <div class="ring-sub" id="ring-sub">0 / 0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tiles">
+            <div class="tile t-valid">
+              <div class="tile-top"><span>Available</span><span class="tile-dot"></span></div>
+              <div class="tile-num" id="stat-valid">0</div>
+              <div class="tile-bar"><span id="bar-valid"></span></div>
+              <div class="tile-foot" id="foot-valid">hit rate —</div>
+            </div>
+            <div class="tile t-taken">
+              <div class="tile-top"><span>Taken</span><span class="tile-dot"></span></div>
+              <div class="tile-num" id="stat-taken">0</div>
+              <div class="tile-bar"><span id="bar-taken"></span></div>
+              <div class="tile-foot" id="foot-taken">0 checked</div>
+            </div>
+            <div class="tile t-retry">
+              <div class="tile-top"><span>Failed</span><span class="tile-dot"></span></div>
+              <div class="tile-num" id="stat-retry">0</div>
+              <div class="tile-bar"><span id="bar-retry"></span></div>
+              <div class="tile-foot" id="foot-retry" title="Bad exit IPs are retried on a fresh IP automatically">0 retried</div>
+            </div>
+            <div class="tile t-speed">
+              <div class="tile-top"><span>Speed</span><span class="tile-unit">/min</span></div>
+              <div class="tile-num" id="stat-speed">0</div>
+              <div class="tile-foot" id="stat-eta">ETA —</div>
+            </div>
+          </div>
+
+          <div class="split">
+            <div class="panel hits-panel">
+              <div class="panel-head">
+                <span class="head-title">Available <b class="count-pill" id="hits-count">0</b></span>
+                <div class="head-actions">
+                  <button class="btn sm" id="btn-save-hits-mini">Save .txt</button>
+                  <button class="btn sm" id="btn-copy-hits-mini">Copy</button>
+                </div>
+              </div>
+              <div class="hits-mini" id="hits-mini"></div>
+            </div>
+            <div class="panel feed-panel">
+              <div class="panel-head">
+                <span>Activity</span>
+                <div class="filters" id="feed-filters">
+                  <button data-f="all" class="active">all</button>
+                  <button data-f="available">hits</button>
+                  <button data-f="taken">taken</button>
+                  <button data-f="status">log</button>
+                </div>
+              </div>
+              <div class="feed" id="history-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════ HITS ═════════ -->
+    <section id="page-hits" class="page">
+      <div class="hits-toolbar">
+        <div class="seg small" id="hits-platform" style="--n:2" title="Which site's names to show">
+          <button data-platform="discord" class="active">Discord</button>
+          <button data-platform="roblox">Roblox</button>
+          <span class="seg-thumb"></span>
+        </div>
+        <div class="seg small" id="hits-view" style="--n:2">
+          <button data-view="session" class="active">Last run</button>
+          <button data-view="all">All time</button>
+          <span class="seg-thumb"></span>
+        </div>
+        <input type="text" id="hits-search" placeholder="Search names…" spellcheck="false">
+        <select id="hits-sort">
+          <option value="new">Newest first</option>
+          <option value="short">Shortest first</option>
+          <option value="az">A → Z</option>
+        </select>
+        <span class="toolbar-note" id="hits-note"></span>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-accent" id="btn-save-hits">Save as .txt</button>
+        <button class="btn" id="btn-copy-hits">Copy</button>
+        <button class="btn" id="btn-recheck" title="Check these names again — some get claimed over time">Re-check</button>
+        <button class="btn" id="btn-hits-vault">Add to Vault</button>
+      </div>
+      <div class="hits-grid" id="hits-grid"></div>
+    </section>
+
+    <!-- ═════════ PROXIES ═════════ -->
+    <section id="page-proxies" class="page">
+      <div class="proxy-layout">
+        <div class="panel proxy-editor">
+          <div class="panel-head">
+            <span>Proxy list</span>
+            <span class="proxy-count" id="proxy-count">0 lines</span>
+          </div>
+          <textarea id="proxy-box" spellcheck="false" placeholder="Any of these work:&#10;http://user:pass@host:port&#10;host:port:user:pass&#10;socks5://1.2.3.4:1080&#10;&#10;One line is enough for a rotating gateway.&#10;Leave empty to check directly."></textarea>
+          <div class="btn-row">
+            <button class="btn btn-accent" id="btn-save-proxies">Save</button>
+            <button class="btn" id="btn-test-proxies">Test</button>
+            <button class="btn" id="btn-load-saved">Load saved</button>
+            <button class="btn" id="btn-load-working">Load working</button>
+          </div>
+        </div>
+        <div class="panel proxy-info">
+          <div class="panel-head"><span>Detected</span></div>
+          <div class="detect" id="proxy-detect"></div>
+          <div class="panel-head" style="margin-top:18px"><span>Test results</span></div>
+          <div class="test-results" id="test-results">
+            <div class="empty">Hit Test to probe each proxy against Discord.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════ VAULT ═════════ -->
+    <section id="page-vault" class="page">
+      <div class="panel vault-form">
+        <input type="text" id="vault-username" placeholder="username">
+        <input type="text" id="vault-price" placeholder="price $">
+        <input type="text" id="vault-notes" placeholder="notes (optional)">
+        <button class="btn btn-accent" id="btn-vault-add">+ Add</button>
+      </div>
+      <div class="toolbar">
+        <button class="btn" id="btn-vault-import">Import valid.txt</button>
+        <button class="btn" id="btn-vault-copy">Copy listings</button>
+        <span class="toolbar-note" id="vault-status"></span>
+      </div>
+      <div class="vault-list" id="vault-list"></div>
+    </section>
+  </main>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Build output. Rebuild it with app/build.bat.
+app/build/
+app/dist/
+__pycache__/
+*.pyc
+
+# Proxy lists can hold proxy logins, so they stay on your PC.
+proxies.txt
+proxies_working.txt
+
+# Local Claude Code settings
+.claude/settings.local.json
