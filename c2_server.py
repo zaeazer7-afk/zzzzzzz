@@ -273,6 +273,7 @@ def make_help():
         + cmd("!methods", "", "Methods detail")
         + cmd("!clear", "", "Clear screen")
         + cmd("!banner", "", "Redraw banner")
+        + cmd("!back", "", "Back to dashboard")
         + cmd("!help", "", "This menu")
         + cmd("!exit", "", "Disconnect")
         + f" {DRED}╚{'═'*W}╝{RST}\r\n"
@@ -639,6 +640,7 @@ class C2Server:
 
         try:
             if op == "!help":
+                self.send_to_admin(admin, "\033[2J\033[H")
                 self.send_to_admin(admin, make_help())
 
             elif op == "!methods":
@@ -692,7 +694,7 @@ class C2Server:
                 self.send_to_admin(admin, "\033[2J\033[H")
                 self.update_title(admin)
 
-            elif op == "!banner":
+            elif op == "!banner" or op == "!back":
                 self.send_to_admin(admin, "\033[2J\033[H")
                 self.update_title(admin)
                 banner = make_banner(
