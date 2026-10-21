@@ -121,7 +121,7 @@ namespace Menu
         void DrawStatusBar()
         {
             bool luaReady = Core::LuaRuntime::Get().IsReady();
-            auto& serverUrl = Core::LuaRuntime::Get().GetServerUrl();
+            auto serverUrl = Core::LuaRuntime::Get().GetServerUrl();
 
             if ( luaReady )
                 ImGui::TextColored( ImVec4( 0.f, 1.f, 0.f, 1.f ), "LUA: Ready" );
