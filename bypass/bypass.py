@@ -5,6 +5,7 @@ Both unlocknow and launcherleaks redirect to Linkvertise — this tool
 follows the chain and extracts the final destination URL.
 """
 
+import json
 import re
 import sys
 import base64
@@ -22,6 +23,92 @@ SESSION.headers.update({
 })
 
 WRAPPER_DOMAINS = {"unlocknow", "launcherleaks"}
+
+
+def bypass_unlocknow_callback(url: str) -> str | None:
+    """
+    Handle unlocknow.net/launcherleaks callback URLs.
+    These are the URLs you get AFTER completing Linkvertise —
+    they contain a JWT token that unlocknow's API uses to return
+    the real download link.
+
+    Format: https://unlocknow.net/api/linkvertise/callback/<jwt_token>
+    """
+    try:
+        # Hit the callback endpoint directly
+        resp = SESSION.get(url, allow_redirects=True, timeout=15)
+
+        # Check if it returned JSON with the download link
+        try:
+            data = resp.json()
+            for key in ("url", "link", "destination", "download", "redirect", "target", "file"):
+                if key in data and isinstance(data[key], str) and data[key].startswith("http"):
+                    return data[key]
+            # Check nested
+            if "data" in data and isinstance(data["data"], dict):
+                for key in ("url", "link", "destination", "download", "redirect"):
+                    if key in data["data"] and isinstance(data["data"][key], str):
+                        return data["data"][key]
+            # Check if the whole response is just a URL string
+            if "result" in data and isinstance(data["result"], str) and data["result"].startswith("http"):
+                return data["result"]
+        except (ValueError, KeyError):
+            pass
+
+        # Check if it redirected to the download
+        if resp.url != url:
+            parsed = urlparse(resp.url)
+            if parsed.hostname and not any(w in parsed.hostname for w in WRAPPER_DOMAINS):
+                return resp.url
+
+        # Scrape the response page for download links
+        body = resp.text
+
+        # File hosting links
+        hosting_pattern = (
+            r'(https?://(?:mega\.nz|mediafire\.com|drive\.google\.com|'
+            r'cdn\.discordapp\.com|github\.com|dropbox\.com|gofile\.io|'
+            r'pixeldrain\.com|anonfiles\.com|workink\.click|'
+            r'filesupload\.org|catbox\.moe|krakenfiles\.com|'
+            r'uploadhaven\.com|sendit\.cloud)[^\s"\'<>]*)'
+        )
+        matches = re.findall(hosting_pattern, body, re.IGNORECASE)
+        if matches:
+            return unquote(matches[0])
+
+        # Any URL that's not unlocknow/launcherleaks/linkvertise
+        all_urls = re.findall(r'(https?://[^\s"\'<>]+)', body)
+        for u in all_urls:
+            parsed = urlparse(u)
+            host = (parsed.hostname or "").lower()
+            if not any(skip in host for skip in ("unlocknow", "launcherleaks", "linkvertise",
+                                                  "google-analytics", "googletagmanager",
+                                                  "facebook", "twitter")):
+                return u
+
+        # Try decoding the JWT payload for a URL
+        path = urlparse(url).path
+        parts = path.strip("/").split("/")
+        for part in parts:
+            # JWT has 3 dot-separated segments
+            if part.count(".") == 2:
+                payload_b64 = part.split(".")[1]
+                # Add padding
+                padding = 4 - len(payload_b64) % 4
+                if padding != 4:
+                    payload_b64 += "=" * padding
+                try:
+                    payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+                    for key in ("url", "link", "destination", "download", "redirect"):
+                        if key in payload and isinstance(payload[key], str) and payload[key].startswith("http"):
+                            return payload[key]
+                except Exception:
+                    pass
+
+    except Exception as e:
+        print(f"[!] Error hitting callback: {e}")
+
+    return None
 
 
 def follow_to_linkvertise(url: str) -> str:
@@ -205,6 +292,10 @@ def bypass(url: str) -> str | None:
     """Main entry point — handles any supported link type."""
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
+
+    # Callback URLs — the link you get after completing Linkvertise
+    if any(w in host for w in WRAPPER_DOMAINS) and "/api/" in url and "/callback/" in url:
+        return bypass_unlocknow_callback(url)
 
     # unlocknow.net and launcherleaks.net both redirect to Linkvertise
     if any(w in host for w in WRAPPER_DOMAINS):
