@@ -125,11 +125,22 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD reason, LPVOID )
     if ( reason == DLL_PROCESS_ATTACH )
     {
         DisableThreadLibraryCalls( hModule );
-        HANDLE hThread = CreateThread( nullptr, 0,
-            reinterpret_cast<LPTHREAD_START_ROUTINE>( MainThread ),
-            hModule, 0, nullptr );
-        if ( hThread )
-            CloseHandle( hThread );
+
+        // Queue work to the Windows thread pool instead of CreateThread.
+        // Thread pool threads originate from ntdll!TppWorkerThread, not from
+        // our mapped region — invisible to module-origin thread scans.
+        using RtlQueueWorkItem_t = NTSTATUS( NTAPI* )( LPTHREAD_START_ROUTINE, PVOID, ULONG );
+        auto pRtlQueueWorkItem = reinterpret_cast<RtlQueueWorkItem_t>(
+            GetProcAddress( GetModuleHandleA( "ntdll.dll" ), "RtlQueueWorkItem" ) );
+
+        if ( pRtlQueueWorkItem )
+        {
+            pRtlQueueWorkItem(
+                reinterpret_cast<LPTHREAD_START_ROUTINE>( MainThread ),
+                hModule,
+                0 /* WT_EXECUTEDEFAULT */
+            );
+        }
     }
     return TRUE;
 }
