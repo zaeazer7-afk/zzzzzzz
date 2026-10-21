@@ -12,6 +12,8 @@
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx11.h>
 
+#include <minhook/include/MinHook.h>
+
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND, UINT, WPARAM, LPARAM );
 
 namespace Core
@@ -33,6 +35,8 @@ namespace Core
         {
             if ( m_hooked ) return true;
 
+            // Create a dummy D3D11 device to read the vtable addresses.
+            // We only READ the function pointers — we never modify the vtable.
             DXGI_SWAP_CHAIN_DESC sd{};
             sd.BufferCount       = 1;
             sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -54,24 +58,48 @@ namespace Core
             );
             if ( FAILED( hr ) ) return false;
 
+            // Read vtable pointers (Present = index 8, ResizeBuffers = index 13)
             void** vtable = *reinterpret_cast<void***>( pSwap );
-            m_oPresent       = reinterpret_cast<fnPresent>( vtable[8] );
-            m_oResizeBuffers = reinterpret_cast<fnResizeBuffers>( vtable[13] );
+            void* pPresent       = vtable[8];
+            void* pResizeBuffers = vtable[13];
 
-            DWORD oldProt;
-
-            VirtualProtect( &vtable[8], sizeof( void* ), PAGE_READWRITE, &oldProt );
-            vtable[8] = reinterpret_cast<void*>( &HkPresent );
-            VirtualProtect( &vtable[8], sizeof( void* ), oldProt, &oldProt );
-
-            VirtualProtect( &vtable[13], sizeof( void* ), PAGE_READWRITE, &oldProt );
-            vtable[13] = reinterpret_cast<void*>( &HkResizeBuffers );
-            VirtualProtect( &vtable[13], sizeof( void* ), oldProt, &oldProt );
-
+            // Release dummy device immediately — we only needed the addresses
             pSwap->Release();
             pDev->Release();
             pCtx->Release();
 
+            // Initialize MinHook
+            if ( MH_Initialize() != MH_OK )
+                return false;
+
+            // Hook Present via inline detour
+            if ( MH_CreateHook( pPresent, reinterpret_cast<void*>( &HkPresent ),
+                                reinterpret_cast<void**>( &m_oPresent ) ) != MH_OK )
+            {
+                MH_Uninitialize();
+                return false;
+            }
+
+            // Hook ResizeBuffers via inline detour
+            if ( MH_CreateHook( pResizeBuffers, reinterpret_cast<void*>( &HkResizeBuffers ),
+                                reinterpret_cast<void**>( &m_oResizeBuffers ) ) != MH_OK )
+            {
+                MH_RemoveHook( pPresent );
+                MH_Uninitialize();
+                return false;
+            }
+
+            // Enable both hooks
+            if ( MH_EnableHook( MH_ALL_HOOKS ) != MH_OK )
+            {
+                MH_RemoveHook( pResizeBuffers );
+                MH_RemoveHook( pPresent );
+                MH_Uninitialize();
+                return false;
+            }
+
+            m_pPresent       = pPresent;
+            m_pResizeBuffers = pResizeBuffers;
             m_hooked = true;
             return true;
         }
@@ -79,6 +107,15 @@ namespace Core
         void Shutdown()
         {
             m_shuttingDown = true;
+
+            if ( m_hooked )
+            {
+                MH_DisableHook( MH_ALL_HOOKS );
+                MH_RemoveHook( m_pPresent );
+                MH_RemoveHook( m_pResizeBuffers );
+                MH_Uninitialize();
+                m_hooked = false;
+            }
 
             if ( m_imguiInit )
             {
@@ -244,6 +281,8 @@ namespace Core
         ID3D11DeviceContext*   m_context        = nullptr;
         ID3D11RenderTargetView* m_rtv           = nullptr;
         RenderFn               m_renderCb;
+        void*                  m_pPresent       = nullptr;
+        void*                  m_pResizeBuffers = nullptr;
     };
 
     inline Hooks& g_Hooks = Hooks::Get();
