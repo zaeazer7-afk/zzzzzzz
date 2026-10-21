@@ -256,25 +256,81 @@ static bool FixRelocations( HANDLE hProc, const uint8_t* raw, void* remoteBase )
     return true;
 }
 
-// Shellcode that runs in the target — resolves imports + calls DllMain
-// We build a small data block + shellcode and execute via thread hijack
+// RVA-to-file-offset converter for raw PE on disk
+static uint32_t RvaToOffset( const uint8_t* raw, uint32_t rva )
+{
+    auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>( raw );
+    auto* nt  = reinterpret_cast<const IMAGE_NT_HEADERS*>( raw + dos->e_lfanew );
+    auto* sec = IMAGE_FIRST_SECTION( nt );
+    for ( WORD i = 0; i < nt->FileHeader.NumberOfSections; i++ )
+    {
+        if ( rva >= sec[i].VirtualAddress &&
+             rva < sec[i].VirtualAddress + sec[i].Misc.VirtualSize )
+            return sec[i].PointerToRawData + ( rva - sec[i].VirtualAddress );
+    }
+    return rva;
+}
+
+// Resolve imports from our process and write to target's IAT via NtWriteVirtualMemory.
+// System DLLs (kernel32, ntdll, ucrtbase, d3d11, etc.) share base addresses across processes.
+static bool ResolveImports( HANDLE hProc, const uint8_t* raw, void* remoteBase )
+{
+    auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>( raw );
+    auto* nt  = reinterpret_cast<const IMAGE_NT_HEADERS*>( raw + dos->e_lfanew );
+    auto& dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    if ( !dir.Size || !dir.VirtualAddress ) return true;
+
+    auto* desc = reinterpret_cast<const IMAGE_IMPORT_DESCRIPTOR*>(
+        raw + RvaToOffset( raw, dir.VirtualAddress ) );
+
+    while ( desc->Name )
+    {
+        const char* dllName = reinterpret_cast<const char*>(
+            raw + RvaToOffset( raw, desc->Name ) );
+        HMODULE hMod = LoadLibraryA( dllName );
+        if ( !hMod ) { printf( "[-] Failed to load %s\n", dllName ); return false; }
+
+        uint32_t oftRva = desc->OriginalFirstThunk ? desc->OriginalFirstThunk : desc->FirstThunk;
+        auto* pOFT = reinterpret_cast<const IMAGE_THUNK_DATA64*>(
+            raw + RvaToOffset( raw, oftRva ) );
+
+        auto* remoteFT = reinterpret_cast<uint64_t*>( (uint8_t*)remoteBase + desc->FirstThunk );
+
+        for ( int idx = 0; pOFT[idx].u1.AddressOfData; idx++ )
+        {
+            uint64_t resolved = 0;
+            if ( IMAGE_SNAP_BY_ORDINAL64( pOFT[idx].u1.Ordinal ) )
+            {
+                resolved = (uint64_t)GetProcAddress( hMod,
+                    MAKEINTRESOURCEA( IMAGE_ORDINAL64( pOFT[idx].u1.Ordinal ) ) );
+            }
+            else
+            {
+                auto* ibn = reinterpret_cast<const IMAGE_IMPORT_BY_NAME*>(
+                    raw + RvaToOffset( raw, (uint32_t)( pOFT[idx].u1.AddressOfData & 0xFFFFFFFF ) ) );
+                resolved = (uint64_t)GetProcAddress( hMod, ibn->Name );
+            }
+            if ( !resolved ) { printf( "[-] Unresolved import from %s\n", dllName ); return false; }
+
+            SIZE_T written = 0;
+            Syscall::pNtWriteVirtualMemory( hProc, &remoteFT[idx], &resolved, sizeof(resolved), &written );
+        }
+        desc++;
+    }
+    return true;
+}
+
+// Shellcode data — imports already resolved, just call DllMain
 #pragma pack(push, 1)
 struct ShellcodeData
 {
-    uint64_t    ImageBase;
-    uint64_t    NtHeaders;        // offset from ImageBase to NT headers
-    uint64_t    pLoadLibraryA;
-    uint64_t    pGetProcAddress;
-    uint64_t    Reason;           // DLL_PROCESS_ATTACH
-    uint64_t    OrigRip;          // to resume after shellcode
-    uint64_t    OrigRsp;
+    uint64_t    EntryPoint;       // VA of DllMain (0 if no entry point)
+    uint64_t    ImageBase;        // hinstDLL
 };
 #pragma pack(pop)
 
-// x64 shellcode — resolve imports, call DllMain, restore execution
-// This is position-independent
+// Minimal x64 shellcode — save regs, align stack, call DllMain, restore, resume
 static const uint8_t g_Shellcode[] = {
-    // save registers
     0x50,                                           // push rax
     0x51,                                           // push rcx
     0x52,                                           // push rdx
@@ -290,99 +346,25 @@ static const uint8_t g_Shellcode[] = {
     0x41, 0x55,                                     // push r13
     0x41, 0x56,                                     // push r14
     0x41, 0x57,                                     // push r15
-    0x48, 0x83, 0xEC, 0x28,                         // sub rsp, 0x28 (shadow space)
 
-    // lea rbx, [rip - offset] to find ShellcodeData placed right before this code
-    // We'll use a different approach: data is at a known offset before shellcode
-    // rcx = address of ShellcodeData (we set RCX before hijack)
+    0x48, 0x89, 0xE5,                               // mov rbp, rsp
+    0x48, 0x83, 0xE4, 0xF0,                         // and rsp, -16
+    0x48, 0x83, 0xEC, 0x20,                         // sub rsp, 0x20 (shadow space)
 
-    // Load ShellcodeData fields
-    0x48, 0x8B, 0x01,                               // mov rax, [rcx]          ; ImageBase
-    0x48, 0x89, 0xC6,                               // mov rsi, rax            ; rsi = ImageBase
-    0x48, 0x8B, 0x59, 0x08,                         // mov rbx, [rcx+8]        ; NT headers offset
-    0x48, 0x01, 0xF3,                               // add rbx, rsi            ; rbx = &NT_HEADERS
-    0x4C, 0x8B, 0x61, 0x10,                         // mov r12, [rcx+0x10]     ; pLoadLibraryA
-    0x4C, 0x8B, 0x69, 0x18,                         // mov r13, [rcx+0x18]     ; pGetProcAddress
-    0x48, 0x89, 0xCD,                               // mov rbp, rcx            ; save data ptr
-
-    // --- Resolve imports ---
-    // Import directory RVA at NT+0x90 (OptionalHeader offset 0x78 + 0x18 for x64)
-    0x8B, 0x83, 0x90, 0x00, 0x00, 0x00,            // mov eax, [rbx+0x90]     ; import dir RVA
-    0x85, 0xC0,                                      // test eax, eax
-    0x0F, 0x84, 0x6A, 0x00, 0x00, 0x00,            // jz skip_imports
-
-    0x48, 0x01, 0xF0,                               // add rax, rsi            ; rax = import descriptor
-    0x49, 0x89, 0xC6,                               // mov r14, rax
-
-    // import_loop:
-    0x41, 0x8B, 0x46, 0x0C,                         // mov eax, [r14+0x0C]     ; Name RVA
-    0x85, 0xC0,                                      // test eax, eax
-    0x74, 0x55,                                      // jz skip_imports
-
-    // LoadLibraryA(ImageBase + NameRVA)
-    0x48, 0x01, 0xF0,                               // add rax, rsi
-    0x48, 0x89, 0xC1,                               // mov rcx, rax
-    0x41, 0xFF, 0xD4,                               // call r12                ; LoadLibraryA
-    0x49, 0x89, 0xC7,                               // mov r15, rax            ; hModule
-
-    // Walk thunk
-    0x41, 0x8B, 0x06,                               // mov eax, [r14]          ; OriginalFirstThunk
-    0x85, 0xC0,                                      // test eax, eax
-    0x75, 0x04,                                      // jnz has_oft
-    0x41, 0x8B, 0x46, 0x10,                         // mov eax, [r14+0x10]     ; FirstThunk
-    // has_oft:
-    0x48, 0x01, 0xF0,                               // add rax, rsi
-    0x48, 0x89, 0xC3,                               // mov rbx, rax            ; rbx = pOFT
-    0x41, 0x8B, 0x46, 0x10,                         // mov eax, [r14+0x10]     ; FirstThunk RVA
-    0x48, 0x01, 0xF0,                               // add rax, rsi
-    0x48, 0x89, 0xC7,                               // mov rdi, rax            ; rdi = pFT
-
-    // thunk_loop:
-    0x48, 0x8B, 0x03,                               // mov rax, [rbx]
+    // rcx = &ShellcodeData (set via thread hijack)
+    0x48, 0x8B, 0x01,                               // mov rax, [rcx]       ; EntryPoint
     0x48, 0x85, 0xC0,                               // test rax, rax
-    0x74, 0x1B,                                      // jz next_descriptor
+    0x74, 0x12,                                     // jz no_entry (+18)
 
-    // Check ordinal flag (bit 63)
-    0x48, 0x0F, 0xBA, 0xE0, 0x3F,                  // bt rax, 63
-    0x73, 0x05,                                      // jnc by_name
-    0x48, 0x25, 0xFF, 0xFF, 0x00, 0x00,            // and rax, 0xFFFF         ; ordinal
-    0xEB, 0x04,                                      // jmp do_resolve
-    // by_name:
-    0x48, 0x01, 0xF0,                               // add rax, rsi            ; &IMPORT_BY_NAME
-    0x48, 0x83, 0xC0, 0x02,                         // add rax, 2              ; skip Hint
-    // do_resolve:
-    0x4C, 0x89, 0xF9,                               // mov rcx, r15            ; hModule
-    0x48, 0x89, 0xC2,                               // mov rdx, rax            ; name/ordinal
-    0x41, 0xFF, 0xD5,                               // call r13                ; GetProcAddress
-    0x48, 0x89, 0x07,                               // mov [rdi], rax          ; store in IAT
-
-    0x48, 0x83, 0xC3, 0x08,                         // add rbx, 8
-    0x48, 0x83, 0xC7, 0x08,                         // add rdi, 8
-    0xEB, 0xD3,                                      // jmp thunk_loop
-
-    // next_descriptor:
-    0x49, 0x83, 0xC6, 0x14,                         // add r14, 0x14 (sizeof IMAGE_IMPORT_DESCRIPTOR)
-    0xEB, 0x9F,                                      // jmp import_loop
-
-    // skip_imports:
-    // --- Call DllMain(ImageBase, DLL_PROCESS_ATTACH, 0) ---
-    // EntryPoint RVA at NT+0x28
-    0x48, 0x89, 0xEB,                               // mov rbx, rbp            ; data ptr
-    0x48, 0x8B, 0x4B, 0x08,                         // mov rcx, [rbx+8]        ; NT offset
-    0x48, 0x03, 0x0B,                               // add rcx, [rbx]          ; + ImageBase = &NT
-    0x8B, 0x41, 0x28,                               // mov eax, [rcx+0x28]     ; AddressOfEntryPoint
-    0x85, 0xC0,                                      // test eax, eax
-    0x74, 0x10,                                      // jz no_entry
-
-    0x48, 0x03, 0x03,                               // add rax, [rbx]          ; EntryPoint VA
-    0x48, 0x8B, 0x0B,                               // mov rcx, [rbx]          ; hinstDLL = ImageBase
-    0x48, 0x8B, 0x53, 0x20,                         // mov rdx, [rbx+0x20]     ; fdwReason = 1
-    0x4D, 0x31, 0xC0,                               // xor r8, r8              ; lpReserved = 0
-    0xFF, 0xD0,                                      // call rax                ; DllMain
+    0x49, 0x89, 0xCC,                               // mov r12, rcx         ; save data ptr
+    0x49, 0x8B, 0x4C, 0x24, 0x08,                   // mov rcx, [r12+8]     ; ImageBase = hinstDLL
+    0xBA, 0x01, 0x00, 0x00, 0x00,                   // mov edx, 1           ; DLL_PROCESS_ATTACH
+    0x4D, 0x31, 0xC0,                               // xor r8, r8           ; lpReserved = 0
+    0xFF, 0xD0,                                     // call rax              ; DllMain
 
     // no_entry:
-    // Restore registers and jump to original RIP
-    0x48, 0x83, 0xC4, 0x28,                         // add rsp, 0x28
+    0x48, 0x89, 0xEC,                               // mov rsp, rbp
+
     0x41, 0x5F,                                     // pop r15
     0x41, 0x5E,                                     // pop r14
     0x41, 0x5D,                                     // pop r13
@@ -398,9 +380,9 @@ static const uint8_t g_Shellcode[] = {
     0x5A,                                           // pop rdx
     0x59,                                           // pop rcx
     0x58,                                           // pop rax
+
     0xFF, 0x25, 0x00, 0x00, 0x00, 0x00,            // jmp [rip+0]
-    // 8 bytes follow: the original RIP to resume
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // original RIP
 };
 
 static bool InjectViaThreadHijack( HANDLE hProc, DWORD tid, void* remoteBase, const uint8_t* raw )
@@ -417,7 +399,6 @@ static bool InjectViaThreadHijack( HANDLE hProc, DWORD tid, void* remoteBase, co
     ctx.ContextFlags = CONTEXT_FULL;
     GetThreadContext( hThread, &ctx );
 
-    // Allocate shellcode + data in target
     size_t totalSize = sizeof( ShellcodeData ) + sizeof( g_Shellcode );
     void* scRemote = nullptr;
     SIZE_T scSize = totalSize + 64;
@@ -430,22 +411,14 @@ static bool InjectViaThreadHijack( HANDLE hProc, DWORD tid, void* remoteBase, co
         return false;
     }
 
-    // Build data block
     ShellcodeData data{};
-    data.ImageBase      = (uint64_t)remoteBase;
-    data.NtHeaders      = (uint64_t)dos->e_lfanew;
-    data.pLoadLibraryA  = (uint64_t)GetProcAddress( GetModuleHandleA("kernel32.dll"), "LoadLibraryA" );
-    data.pGetProcAddress = (uint64_t)GetProcAddress( GetModuleHandleA("kernel32.dll"), "GetProcAddress" );
-    data.Reason         = DLL_PROCESS_ATTACH;
-    data.OrigRip        = ctx.Rip;
-    data.OrigRsp        = ctx.Rsp;
+    uint32_t entryRva = nt->OptionalHeader.AddressOfEntryPoint;
+    data.EntryPoint = entryRva ? (uint64_t)remoteBase + entryRva : 0;
+    data.ImageBase  = (uint64_t)remoteBase;
 
-    // Build shellcode with patched resume address
     std::vector<uint8_t> sc( g_Shellcode, g_Shellcode + sizeof(g_Shellcode) );
-    // Patch the last 8 bytes (jmp target) with original RIP
     memcpy( sc.data() + sc.size() - 8, &ctx.Rip, 8 );
 
-    // Write data + shellcode
     SIZE_T written = 0;
     uint8_t* dataAddr = (uint8_t*)scRemote;
     uint8_t* codeAddr = dataAddr + sizeof( ShellcodeData );
@@ -453,13 +426,11 @@ static bool InjectViaThreadHijack( HANDLE hProc, DWORD tid, void* remoteBase, co
     Syscall::pNtWriteVirtualMemory( hProc, dataAddr, &data, sizeof(data), &written );
     Syscall::pNtWriteVirtualMemory( hProc, codeAddr, sc.data(), sc.size(), &written );
 
-    // Set executable
     ULONG oldProt = 0;
     void* protAddr = scRemote;
     SIZE_T protSize = scSize;
     Syscall::pNtProtectVirtualMemory( hProc, &protAddr, &protSize, PAGE_EXECUTE_READ, &oldProt );
 
-    // Hijack thread — RCX = data ptr, RIP = shellcode
     ctx.Rcx = (DWORD64)dataAddr;
     ctx.Rip = (DWORD64)codeAddr;
     SetThreadContext( hThread, &ctx );
@@ -741,13 +712,21 @@ int main()
         CloseHandle( hProc );
         return 1;
     }
-    printf( "[+] Allocated at 0x%p (%zu KB)\n", remoteBase, nt->OptionalHeader.SizeOfImage / 1024 );
+    printf( "[+] Allocated at 0x%p (%u KB)\n", remoteBase, nt->OptionalHeader.SizeOfImage / 1024 );
 
     printf( "[*] Mapping sections...\n" );
     MapSections( hProc, dll.data(), remoteBase );
 
     printf( "[*] Fixing relocations...\n" );
     FixRelocations( hProc, dll.data(), remoteBase );
+
+    printf( "[*] Resolving imports...\n" );
+    if ( !ResolveImports( hProc, dll.data(), remoteBase ) )
+    {
+        printf( "[-] Import resolution failed\n" );
+        CloseHandle( hProc );
+        return 1;
+    }
 
     printf( "[*] Setting section protections...\n" );
     SetSectionProtections( hProc, dll.data(), remoteBase );
