@@ -162,6 +162,28 @@ static DWORD FindThread( DWORD pid )
     return tid;
 }
 
+static bool IsModuleLoaded( DWORD pid, const wchar_t* modName )
+{
+    HANDLE snap = CreateToolhelp32Snapshot( TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid );
+    if ( snap == INVALID_HANDLE_VALUE ) return false;
+
+    MODULEENTRY32W me{};
+    me.dwSize = sizeof( me );
+    bool found = false;
+    if ( Module32FirstW( snap, &me ) )
+    {
+        do {
+            if ( _wcsicmp( me.szModule, modName ) == 0 )
+            {
+                found = true;
+                break;
+            }
+        } while ( Module32NextW( snap, &me ) );
+    }
+    CloseHandle( snap );
+    return found;
+}
+
 // ---------------------------------------------------------
 // Decrypt embedded payload
 // ---------------------------------------------------------
@@ -324,15 +346,16 @@ static bool ResolveImports( HANDLE hProc, const uint8_t* raw, void* remoteBase )
 #pragma pack(push, 1)
 struct ShellcodeData
 {
-    uint64_t    EntryPoint;       // VA of DllMain (0 if no entry point)
-    uint64_t    ImageBase;        // hinstDLL
+    uint64_t    EntryPoint;       // +0x00: VA of DllMain (0 if none)
+    uint64_t    ImageBase;        // +0x08: hinstDLL
+    uint64_t    OrigRcx;          // +0x10: original RCX to restore
 };
 #pragma pack(pop)
 
-// Minimal x64 shellcode — save regs, align stack, call DllMain, restore, resume
+// Minimal x64 shellcode — save regs, align stack, call DllMain, fix RCX, restore, resume
 static const uint8_t g_Shellcode[] = {
     0x50,                                           // push rax
-    0x51,                                           // push rcx
+    0x51,                                           // push rcx  (saves dataAddr — fixed before pop)
     0x52,                                           // push rdx
     0x53,                                           // push rbx
     0x55,                                           // push rbp
@@ -352,18 +375,20 @@ static const uint8_t g_Shellcode[] = {
     0x48, 0x83, 0xEC, 0x20,                         // sub rsp, 0x20 (shadow space)
 
     // rcx = &ShellcodeData (set via thread hijack)
+    0x49, 0x89, 0xCC,                               // mov r12, rcx         ; save data ptr
     0x48, 0x8B, 0x01,                               // mov rax, [rcx]       ; EntryPoint
     0x48, 0x85, 0xC0,                               // test rax, rax
-    0x74, 0x12,                                     // jz no_entry (+18)
+    0x74, 0x0F,                                     // jz no_entry (+15)
 
-    0x49, 0x89, 0xCC,                               // mov r12, rcx         ; save data ptr
     0x49, 0x8B, 0x4C, 0x24, 0x08,                   // mov rcx, [r12+8]     ; ImageBase = hinstDLL
     0xBA, 0x01, 0x00, 0x00, 0x00,                   // mov edx, 1           ; DLL_PROCESS_ATTACH
     0x4D, 0x31, 0xC0,                               // xor r8, r8           ; lpReserved = 0
     0xFF, 0xD0,                                     // call rax              ; DllMain
 
-    // no_entry:
+    // no_entry: restore stack, fix RCX slot, pop all, resume
     0x48, 0x89, 0xEC,                               // mov rsp, rbp
+    0x49, 0x8B, 0x44, 0x24, 0x10,                   // mov rax, [r12+0x10]  ; OrigRcx
+    0x48, 0x89, 0x45, 0x68,                         // mov [rbp+0x68], rax  ; fix saved RCX slot
 
     0x41, 0x5F,                                     // pop r15
     0x41, 0x5E,                                     // pop r14
@@ -378,20 +403,20 @@ static const uint8_t g_Shellcode[] = {
     0x5D,                                           // pop rbp
     0x5B,                                           // pop rbx
     0x5A,                                           // pop rdx
-    0x59,                                           // pop rcx
+    0x59,                                           // pop rcx  (now gets OrigRcx)
     0x58,                                           // pop rax
 
     0xFF, 0x25, 0x00, 0x00, 0x00, 0x00,            // jmp [rip+0]
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // original RIP
 };
 
-static bool InjectViaThreadHijack( HANDLE hProc, DWORD tid, void* remoteBase, const uint8_t* raw )
+static void* InjectViaThreadHijack( HANDLE hProc, DWORD tid, void* remoteBase, const uint8_t* raw )
 {
     auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>( raw );
     auto* nt  = reinterpret_cast<const IMAGE_NT_HEADERS*>( raw + dos->e_lfanew );
 
     HANDLE hThread = OpenThread( THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_SET_CONTEXT, FALSE, tid );
-    if ( !hThread ) return false;
+    if ( !hThread ) return nullptr;
 
     SuspendThread( hThread );
 
@@ -408,13 +433,14 @@ static bool InjectViaThreadHijack( HANDLE hProc, DWORD tid, void* remoteBase, co
     {
         ResumeThread( hThread );
         CloseHandle( hThread );
-        return false;
+        return nullptr;
     }
 
     ShellcodeData data{};
     uint32_t entryRva = nt->OptionalHeader.AddressOfEntryPoint;
     data.EntryPoint = entryRva ? (uint64_t)remoteBase + entryRva : 0;
     data.ImageBase  = (uint64_t)remoteBase;
+    data.OrigRcx    = ctx.Rcx;
 
     std::vector<uint8_t> sc( g_Shellcode, g_Shellcode + sizeof(g_Shellcode) );
     memcpy( sc.data() + sc.size() - 8, &ctx.Rip, 8 );
@@ -437,7 +463,7 @@ static bool InjectViaThreadHijack( HANDLE hProc, DWORD tid, void* remoteBase, co
 
     ResumeThread( hThread );
     CloseHandle( hThread );
-    return true;
+    return scRemote;
 }
 
 static bool EraseHeaders( HANDLE hProc, void* remoteBase )
@@ -691,8 +717,22 @@ int main()
     }
     printf( "[+] Found FiveM PID: %lu\n", pid );
 
-    // Wait a few seconds for the process to settle
-    Sleep( 3000 );
+    // Wait for D3D11 — DLL hooks Present, needs the device to exist
+    printf( "[*] Waiting for D3D11 initialization...\n" );
+    for ( int i = 0; i < 120; i++ )
+    {
+        if ( IsModuleLoaded( pid, L"d3d11.dll" ) ) break;
+        Sleep( 1000 );
+    }
+    if ( !IsModuleLoaded( pid, L"d3d11.dll" ) )
+    {
+        printf( "[-] d3d11.dll not loaded after 2 minutes — injecting anyway\n" );
+    }
+    else
+    {
+        printf( "[+] d3d11.dll loaded — waiting for device creation...\n" );
+        Sleep( 5000 );
+    }
 
     HANDLE hProc = OpenProcess( PROCESS_ALL_ACCESS, FALSE, pid );
     if ( !hProc )
@@ -740,17 +780,23 @@ int main()
     }
 
     printf( "[*] Hijacking thread %lu...\n", tid );
-    if ( !InjectViaThreadHijack( hProc, tid, remoteBase, dll.data() ) )
+    void* scRemote = InjectViaThreadHijack( hProc, tid, remoteBase, dll.data() );
+    if ( !scRemote )
     {
         printf( "[-] Thread hijack failed\n" );
         CloseHandle( hProc );
         return 1;
     }
 
-    Sleep( 2000 );
+    // Give DllMain time to execute before cleanup
+    Sleep( 4000 );
 
     printf( "[*] Erasing PE headers...\n" );
     EraseHeaders( hProc, remoteBase );
+
+    // Free shellcode allocation — DllMain already ran
+    SIZE_T freeSize = 0;
+    Syscall::pNtFreeVirtualMemory( hProc, &scRemote, &freeSize, MEM_RELEASE );
 
     // Clear decrypted DLL from our own memory
     SecureZeroMemory( dll.data(), dll.size() );
