@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyAI</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">MyAI</h1>
+                <button class="btn-icon" id="newChatBtn" title="New chat">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+            </div>
+            <div class="conversation-list" id="convList"></div>
+            <div class="sidebar-footer">
+                <button class="btn-settings" id="settingsBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    Settings
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main -->
+        <main class="main">
+            <div class="chat-container" id="chatContainer">
+                <div class="welcome" id="welcome">
+                    <h2>MyAI</h2>
+                    <p>Your personal AI. Ask anything, build anything.</p>
+                    <div class="quick-actions">
+                        <button class="quick-btn" data-prompt="Write me a Python script that">Python script</button>
+                        <button class="quick-btn" data-prompt="Build me a">Build a tool</button>
+                        <button class="quick-btn" data-prompt="Explain how to">How-to guide</button>
+                        <button class="quick-btn" data-prompt="Create a web app that">Web app</button>
+                    </div>
+                </div>
+                <div class="messages" id="messages"></div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <textarea id="userInput" placeholder="Ask me anything..." rows="1" autofocus></textarea>
+                    <button class="send-btn" id="sendBtn" title="Send">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
+                <div class="input-footer">
+                    <span class="model-badge" id="modelBadge">qwen2.5-coder:7b</span>
+                    <span class="status" id="status">Ready</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Settings Modal -->
+        <div class="modal-overlay" id="settingsModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>Settings</h3>
+                    <button class="btn-icon modal-close" id="closeSettings">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Ollama URL</label>
+                        <input type="text" id="cfgOllamaUrl" placeholder="http://localhost:11434">
+                    </div>
+                    <div class="form-group">
+                        <label>Model</label>
+                        <div class="model-select-row">
+                            <select id="cfgModel"></select>
+                            <button class="btn-sm" id="refreshModels">Refresh</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Pull New Model</label>
+                        <div class="model-select-row">
+                            <input type="text" id="pullModelName" placeholder="e.g. llama3.1:8b">
+                            <button class="btn-sm" id="pullModelBtn">Pull</button>
+                        </div>
+                        <small id="pullStatus"></small>
+                    </div>
+                    <div class="form-group">
+                        <label>System Prompt</label>
+                        <textarea id="cfgSystemPrompt" rows="5"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Temperature: <span id="tempVal">0.7</span></label>
+                        <input type="range" id="cfgTemp" min="0" max="2" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Max Tokens</label>
+                        <input type="number" id="cfgMaxTokens" min="256" max="32768">
+                    </div>
+                    <button class="btn-primary" id="saveSettings">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

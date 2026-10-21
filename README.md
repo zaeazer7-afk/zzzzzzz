@@ -1,37 +1,73 @@
-# GameDev Toolkit
+# MyAI
 
-Framework for building game tools — FiveM, CS2, R6S and more.
+Your own self-hosted AI assistant. Runs locally via Ollama — no API keys, no rate limits, no filters. You own the model and the system prompt.
 
-## Structure
+## Setup (Windows)
 
-```
-core/           — shared C++ libraries (memory, overlay, math, utils)
-fivem/          — FiveM Lua framework, executor, resource dumper
-cs2/            — CS2 external tool base + SDK offsets
-r6s/            — R6S external tool base + SDK offsets
-common/         — cross-game GUI (ImGui menu), config, logging
-templates/      — starter templates per game/tool type
-generator/      — Python CLI to scaffold new projects
-```
+### 1. Install Ollama
 
-## Quick Start
+Download and install from [ollama.com](https://ollama.com/download).
+
+### 2. Pull a model
+
+Open a terminal and run:
 
 ```bash
-python generator/generate.py --game fivem --type menu
-python generator/generate.py --game cs2 --type esp
-python generator/generate.py --game r6s --type aimbot
-python generator/generate.py --game fivem --type executor
+ollama pull qwen2.5-coder:7b
 ```
 
-## Build (C++ projects)
+This downloads a 7B coding model that fits your 1660 Super (6GB VRAM). Takes ~5 minutes on a decent connection.
 
-Requires: CMake 3.20+, Visual Studio 2022 or g++/clang with C++20.
+Other models you can try:
+- `ollama pull llama3.1:8b` — general purpose all-rounder
+- `ollama pull deepseek-coder-v2:16b` — stronger coder, needs 12GB+ VRAM
+- `ollama pull codellama:7b` — Meta's code model
+
+### 3. Install Python dependencies
 
 ```bash
-cmake -B build -DGAME=CS2
-cmake --build build --config Release
+pip install -r requirements.txt
 ```
 
-## FiveM Lua Tools
+### 4. Run
 
-Drop `fivem/lua_framework/` into your FiveM resources. No C++ build needed.
+```bash
+python run.py
+```
+
+Open **http://localhost:8888** in your browser.
+
+## Features
+
+- **Chat UI** — clean dark interface with streaming responses
+- **Conversation history** — saved locally as JSON, pick up where you left off
+- **Multiple models** — swap models in Settings, pull new ones from the UI
+- **Custom system prompt** — fully editable, controls how the AI behaves
+- **Code highlighting** — syntax-highlighted code blocks with copy button
+- **WebSocket streaming** — tokens appear as they generate, no waiting
+- **No external calls** — everything runs on your machine
+
+## Customization
+
+Click **Settings** in the sidebar to change:
+- **Model** — pick from any model you've pulled
+- **System prompt** — controls the AI's behavior and personality
+- **Temperature** — higher = more creative, lower = more precise
+- **Max tokens** — how long responses can be
+
+## Architecture
+
+```
+server/
+  app.py              — FastAPI routes + WebSocket handler
+  ollama_client.py    — Ollama API client with streaming
+  config.py           — config load/save
+  conversations.py    — conversation CRUD (JSON files)
+templates/
+  index.html          — main page
+static/
+  style.css           — dark theme UI
+  app.js              — frontend logic
+data/                 — conversations + config (auto-created)
+run.py                — launcher
+```
