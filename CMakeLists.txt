@@ -4,6 +4,9 @@ project(enhanced LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Static CRT for manual map injection compatibility
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 # ImGui — fetch from GitHub
 include(FetchContent)
 FetchContent_Declare(
