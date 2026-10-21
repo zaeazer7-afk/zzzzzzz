@@ -101,6 +101,29 @@ namespace Core
         std::string m_currentServerUrl;
     };
 
+    __declspec(noinline) inline int SEH_lua_gettop( fn_lua_gettop fn, lua_State* L )
+    {
+        __try { return fn( L ); }
+        __except ( EXCEPTION_EXECUTE_HANDLER ) { return -1; }
+    }
+
+    __declspec(noinline) inline bool ProbeServerUrl( uintptr_t addr, char* out, size_t outSz )
+    {
+        __try
+        {
+            auto* str = reinterpret_cast<std::string*>( addr );
+            if ( str->size() > 5 && str->size() < 256 &&
+                ( str->find( "http" ) == 0 || str->find( "cfx.re" ) != std::string::npos ) )
+            {
+                strncpy( out, str->c_str(), outSz - 1 );
+                out[outSz - 1] = '\0';
+                return true;
+            }
+        }
+        __except ( EXCEPTION_EXECUTE_HANDLER ) {}
+        return false;
+    }
+
     class LuaRuntime
     {
     public:
@@ -235,17 +258,13 @@ namespace Core
                         if ( !candidate ) continue;
                         if ( IsBadReadPtr( reinterpret_cast<void*>( candidate ), 64 ) ) continue;
 
-                        __try
+                        int top = SEH_lua_gettop( m_fn.lua_gettop, reinterpret_cast<lua_State*>( candidate ) );
+                        if ( top >= 0 && top < 1000 )
                         {
-                            int top = m_fn.lua_gettop( reinterpret_cast<lua_State*>( candidate ) );
-                            if ( top >= 0 && top < 1000 )
-                            {
-                                m_cachedState = reinterpret_cast<lua_State*>( candidate );
-                                m_cachedStateOffset = off;
-                                return m_cachedState;
-                            }
+                            m_cachedState = reinterpret_cast<lua_State*>( candidate );
+                            m_cachedStateOffset = off;
+                            return m_cachedState;
                         }
-                        __except ( EXCEPTION_EXECUTE_HANDLER ) {}
                     }
                 }
             }
@@ -256,13 +275,9 @@ namespace Core
         {
             if ( m_cachedState && m_cachedStateOffset >= 0 )
             {
-                __try
-                {
-                    int top = m_fn.lua_gettop( m_cachedState );
-                    if ( top >= 0 && top < 1000 )
-                        return m_cachedState;
-                }
-                __except ( EXCEPTION_EXECUTE_HANDLER ) {}
+                int top = SEH_lua_gettop( m_fn.lua_gettop, m_cachedState );
+                if ( top >= 0 && top < 1000 )
+                    return m_cachedState;
 
                 m_cachedState = nullptr;
                 m_cachedStateOffset = -1;
@@ -298,16 +313,9 @@ namespace Core
                 const int urlOffsets[] = { 0xF8, 0x100, 0x108, 0x110, 0x118, 0x120 };
                 for ( int off : urlOffsets )
                 {
-                    __try
-                    {
-                        auto* str = reinterpret_cast<std::string*>( netLib + off );
-                        if ( str->size() > 5 && str->size() < 256 &&
-                            ( str->find( "http" ) == 0 || str->find( "cfx.re" ) != std::string::npos ) )
-                        {
-                            return *str;
-                        }
-                    }
-                    __except ( EXCEPTION_EXECUTE_HANDLER ) {}
+                    char urlBuf[256] = {};
+                    if ( ProbeServerUrl( netLib + off, urlBuf, sizeof(urlBuf) ) )
+                        return std::string( urlBuf );
                 }
             }
             return "";

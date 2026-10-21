@@ -42,6 +42,16 @@ namespace Core
             return g_LuaRuntime.IsReady();
         }
 
+        ExecResult Execute( const std::string& code, const std::string& label = "custom" )
+        {
+            return Execute( code.c_str(), label.c_str() );
+        }
+
+        ExecResult ExecuteSafe( const std::string& code, const std::string& label = "custom" )
+        {
+            return ExecuteSafe( code.c_str(), label.c_str() );
+        }
+
         ExecResult Execute( const char* code, const char* label = "custom" )
         {
             ExecResult res{};

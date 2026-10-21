@@ -129,7 +129,7 @@ namespace Features
 
             if (AntiTeleport)
             {
-                Core::g_Scheduler.Execute(R"(
+                Core::g_Scheduler.Execute(R"lua(
                     local ped = PlayerPedId()
                     local c = GetEntityCoords(ped)
                     local stored = GetResourceKvpString("__tri_lastpos")
@@ -145,7 +145,7 @@ namespace Features
                         end
                     end
                     SetResourceKvp("__tri_lastpos", string.format("%.2f|%.2f|%.2f", c.x, c.y, c.z))
-                )", "anti_tp");
+                )lua", "anti_tp");
             }
 
             if (AntiWeaponRemove)

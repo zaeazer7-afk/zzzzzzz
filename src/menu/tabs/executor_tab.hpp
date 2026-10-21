@@ -93,7 +93,7 @@ namespace Menu::Tabs
         {
             ImGui::SeparatorText( "Execution History" );
 
-            auto& history = Core::g_Scheduler.GetHistory();
+            auto history = Core::g_Scheduler.GetHistory();
             if ( history.empty() )
             {
                 ImGui::TextDisabled( "No history yet." );
