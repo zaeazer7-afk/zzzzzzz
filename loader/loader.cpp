@@ -689,17 +689,26 @@ int main()
     }
 
     printf( "[*] Waiting for FiveM...\n" );
-    const wchar_t* targets[] = { L"FiveM_b3095_GTAProcess.exe", L"FiveM_b2944_GTAProcess.exe",
-                                  L"FiveM_b2802_GTAProcess.exe", L"FiveM_b2699_GTAProcess.exe",
-                                  L"FiveM_GTAProcess.exe", L"GTA5.exe" };
-
     DWORD pid = 0;
     for ( int attempt = 0; attempt < 300 && !pid; attempt++ )
     {
-        for ( auto t : targets )
+        HANDLE snap = CreateToolhelp32Snapshot( TH32CS_SNAPPROCESS, 0 );
+        if ( snap != INVALID_HANDLE_VALUE )
         {
-            pid = FindProcess( t );
-            if ( pid ) break;
+            PROCESSENTRY32W pe{};
+            pe.dwSize = sizeof( pe );
+            if ( Process32FirstW( snap, &pe ) )
+            {
+                do {
+                    if ( wcsstr( pe.szExeFile, L"GTAProcess" ) ||
+                         _wcsicmp( pe.szExeFile, L"GTA5.exe" ) == 0 )
+                    {
+                        pid = pe.th32ProcessID;
+                        break;
+                    }
+                } while ( Process32NextW( snap, &pe ) );
+            }
+            CloseHandle( snap );
         }
         if ( !pid ) Sleep( 1000 );
     }
