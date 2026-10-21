@@ -50,13 +50,13 @@
   </ImportGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)build\bin\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\obj\Loader\$(Configuration)\</IntDir>
+    <OutDir>$(ProjectDir)..\build\bin\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)..\build\obj\Loader\$(Configuration)\</IntDir>
     <TargetName>trident_loader</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)build\bin\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\obj\Loader\$(Configuration)\</IntDir>
+    <OutDir>$(ProjectDir)..\build\bin\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)..\build\obj\Loader\$(Configuration)\</IntDir>
     <TargetName>trident_loader</TargetName>
   </PropertyGroup>
 
