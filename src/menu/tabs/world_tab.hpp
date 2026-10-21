@@ -1,25 +1,27 @@
 #pragma once
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 #include <features/world.hpp>
 
 namespace Menu::Tabs
 {
     inline void RenderWorld()
     {
-        auto& w = Features::World::Get();
+        auto& w = Features::WorldFeatures::Get();
 
         ImGui::SeparatorText( "Self Protection" );
 
         ImGui::Checkbox( "God Mode", &w.GodMode );
         ImGui::SameLine( 200.f );
-        ImGui::Checkbox( "Semi-God", &w.SemiGod );
+        ImGui::Checkbox( "Semi-God", &w.SemiGodMode );
 
         ImGui::Checkbox( "Invisible", &w.Invisible );
         ImGui::SameLine( 200.f );
         ImGui::Checkbox( "Auto Heal", &w.AutoHeal );
 
         ImGui::Checkbox( "Auto Revive", &w.AutoRevive );
+        ImGui::SameLine( 200.f );
+        ImGui::Checkbox( "Never Wanted", &w.NeverWanted );
 
         ImGui::Spacing();
         ImGui::SeparatorText( "Wanted Level" );
@@ -45,33 +47,34 @@ namespace Menu::Tabs
         ImGui::SliderInt( "Hour", &w.TimeHour, 0, 23 );
         ImGui::SliderInt( "Minute", &w.TimeMinute, 0, 59 );
         if ( ImGui::Button( "Set Time" ) )
-            w.SetTime();
+            w.SetTime( w.TimeHour, w.TimeMinute );
 
         ImGui::Spacing();
 
-        const char* weathers[] = {
-            "CLEAR", "EXTRASUNNY", "CLOUDS", "OVERCAST", "RAIN",
-            "CLEARING", "THUNDER", "SMOG", "FOGGY", "XMAS",
-            "SNOWLIGHT", "BLIZZARD", "NEUTRAL", "HALLOWEEN"
-        };
-        ImGui::Combo( "Weather", &w.SelectedWeather, weathers, 14 );
+        ImGui::Combo( "Weather", &w.WeatherIndex, w.WeatherTypes, w.WeatherCount );
         ImGui::SameLine();
         if ( ImGui::Button( "Set Weather" ) )
-            w.SetWeather();
+            w.SetWeather( w.WeatherTypes[w.WeatherIndex] );
 
         ImGui::Spacing();
         ImGui::SeparatorText( "Actions" );
 
         if ( ImGui::Button( "Heal Self", ImVec2( 140, 0 ) ) )
-            w.HealSelf();
+            w.HealPlayer();
         ImGui::SameLine();
+        if ( ImGui::Button( "Max Armor", ImVec2( 140, 0 ) ) )
+            w.MaxArmor();
+
         if ( ImGui::Button( "Give All Weapons", ImVec2( 140, 0 ) ) )
             w.GiveAllWeapons();
-
+        ImGui::SameLine();
         if ( ImGui::Button( "Remove All Weapons", ImVec2( 140, 0 ) ) )
             w.RemoveAllWeapons();
-        ImGui::SameLine();
+
         if ( ImGui::Button( "Spawn Bodyguard", ImVec2( 140, 0 ) ) )
             w.SpawnBodyguard();
+        ImGui::SameLine();
+        if ( ImGui::Button( "Clear Area", ImVec2( 140, 0 ) ) )
+            w.ClearArea();
     }
 }

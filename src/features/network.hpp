@@ -48,7 +48,7 @@ namespace Features
                     m_lastSpam = now;
                     std::string msg = ChatSpamMessage;
                     std::string code = std::string( R"(TriggerServerEvent('chatMessage', '', {0}, ')" ) + msg + "')";
-                    Core::g_Scheduler.Execute( code );
+                    Core::g_Scheduler.Execute( code.c_str() );
                 }
             }
         }

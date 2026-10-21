@@ -1,6 +1,6 @@
 #pragma once
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 #include <core/scheduler.hpp>
 #include <menu/notifications.hpp>
 #include <string>

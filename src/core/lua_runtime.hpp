@@ -178,6 +178,15 @@ namespace Core
 
         bool IsReady() const { return m_ready; }
 
+        void Rescan()
+        {
+            std::lock_guard<std::mutex> lk( m_mtx );
+            m_ready = false;
+            m_cachedState = nullptr;
+            m_cachedStateOffset = -1;
+            m_fn = {};
+        }
+
         const LuaFunctions& Fn() const { return m_fn; }
 
         lua_State* GetActiveLuaState() const
