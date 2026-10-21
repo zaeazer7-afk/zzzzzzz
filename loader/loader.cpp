@@ -1,13 +1,16 @@
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
 #include <Windows.h>
 #include <TlHelp32.h>
 #include <winternl.h>
+#include <winhttp.h>
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <sstream>
+
+#pragma comment(lib, "winhttp.lib")
 
 #include "payload.hpp"
 
@@ -507,6 +510,147 @@ static bool SetSectionProtections( HANDLE hProc, const uint8_t* raw, void* remot
 }
 
 // ---------------------------------------------------------
+// Auth — key validation + HWID
+// ---------------------------------------------------------
+
+namespace Auth
+{
+    static const char* AUTH_HOST = "40.160.149.164";
+    static const int   AUTH_PORT = 8888;
+
+    static std::string GetHWID()
+    {
+        char volName[MAX_PATH], fsName[MAX_PATH];
+        DWORD serial = 0, maxLen = 0, flags = 0;
+        GetVolumeInformationA( "C:\\", volName, MAX_PATH, &serial, &maxLen, &flags, fsName, MAX_PATH );
+
+        char compName[MAX_COMPUTERNAME_LENGTH + 1];
+        DWORD compSize = sizeof( compName );
+        GetComputerNameA( compName, &compSize );
+
+        char combined[256];
+        snprintf( combined, sizeof(combined), "%08lX-%s", serial, compName );
+
+        unsigned int hash = 0x811C9DC5u;
+        for ( int i = 0; combined[i]; i++ )
+        {
+            hash ^= (unsigned char)combined[i];
+            hash *= 0x01000193u;
+        }
+
+        char hwid[32];
+        snprintf( hwid, sizeof(hwid), "%08X%08lX", hash, serial );
+        return hwid;
+    }
+
+    static std::string GetKeyPath()
+    {
+        char appdata[MAX_PATH];
+        if ( GetEnvironmentVariableA( "APPDATA", appdata, MAX_PATH ) == 0 )
+            return "trident.key";
+        return std::string( appdata ) + "\\trident.key";
+    }
+
+    static std::string LoadSavedKey()
+    {
+        std::ifstream f( GetKeyPath() );
+        if ( !f.is_open() ) return "";
+        std::string key;
+        std::getline( f, key );
+        return key;
+    }
+
+    static void SaveKey( const std::string& key )
+    {
+        std::ofstream f( GetKeyPath() );
+        f << key;
+    }
+
+    static bool Validate( const std::string& key, const std::string& hwid )
+    {
+        HINTERNET hSession = WinHttpOpen( L"Trident/1.0", WINHTTP_ACCESS_TYPE_NO_PROXY, nullptr, nullptr, 0 );
+        if ( !hSession ) return false;
+
+        wchar_t wHost[64];
+        MultiByteToWideChar( CP_ACP, 0, AUTH_HOST, -1, wHost, 64 );
+
+        HINTERNET hConnect = WinHttpConnect( hSession, wHost, AUTH_PORT, 0 );
+        if ( !hConnect ) { WinHttpCloseHandle( hSession ); return false; }
+
+        HINTERNET hRequest = WinHttpOpenRequest( hConnect, L"POST", L"/api/auth",
+            nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, 0 );
+        if ( !hRequest ) { WinHttpCloseHandle( hConnect ); WinHttpCloseHandle( hSession ); return false; }
+
+        std::string body = "{\"key\":\"" + key + "\",\"hwid\":\"" + hwid + "\"}";
+        const wchar_t* headers = L"Content-Type: application/json\r\n";
+
+        BOOL sent = WinHttpSendRequest( hRequest, headers, -1,
+            (LPVOID)body.c_str(), (DWORD)body.size(), (DWORD)body.size(), 0 );
+
+        if ( !sent || !WinHttpReceiveResponse( hRequest, nullptr ) )
+        {
+            WinHttpCloseHandle( hRequest );
+            WinHttpCloseHandle( hConnect );
+            WinHttpCloseHandle( hSession );
+            return false;
+        }
+
+        DWORD statusCode = 0, statusSize = sizeof( statusCode );
+        WinHttpQueryHeaders( hRequest,
+            WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+            WINHTTP_HEADER_NAME_BY_INDEX, &statusCode, &statusSize, WINHTTP_NO_HEADER_INDEX );
+
+        WinHttpCloseHandle( hRequest );
+        WinHttpCloseHandle( hConnect );
+        WinHttpCloseHandle( hSession );
+
+        return statusCode == 200;
+    }
+
+    static bool Authenticate()
+    {
+        std::string hwid = GetHWID();
+        std::string key = LoadSavedKey();
+
+        if ( !key.empty() )
+        {
+            printf( "[*] Saved key found, validating...\n" );
+            if ( Validate( key, hwid ) )
+            {
+                printf( "[+] Authenticated.\n" );
+                return true;
+            }
+            printf( "[-] Saved key invalid or expired.\n" );
+        }
+
+        for ( int attempt = 0; attempt < 3; attempt++ )
+        {
+            printf( "\n    Enter license key: " );
+            char buf[128] = {};
+            if ( !fgets( buf, sizeof(buf), stdin ) ) return false;
+
+            key = buf;
+            while ( !key.empty() && (key.back() == '\n' || key.back() == '\r') )
+                key.pop_back();
+
+            if ( key.empty() ) continue;
+
+            printf( "[*] Validating...\n" );
+            if ( Validate( key, hwid ) )
+            {
+                SaveKey( key );
+                printf( "[+] Authenticated. Key saved.\n" );
+                return true;
+            }
+
+            printf( "[-] Invalid key, HWID mismatch, or expired. (%d/3)\n", attempt + 1 );
+        }
+
+        return false;
+    }
+}
+
+// ---------------------------------------------------------
 // Main
 // ---------------------------------------------------------
 
@@ -514,7 +658,14 @@ int main()
 {
     SetConsoleTitleA( "System Service Host" );
 
-    printf( "[*] Decrypting payload...\n" );
+    if ( !Auth::Authenticate() )
+    {
+        printf( "\n[-] Authentication failed.\n" );
+        Sleep( 3000 );
+        return 1;
+    }
+
+    printf( "\n[*] Decrypting payload...\n" );
     auto dll = DecryptPayload();
 
     auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>( dll.data() );
