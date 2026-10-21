@@ -21,17 +21,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui minhook)
 
-# MinHook library (no CMakeLists in upstream repo)
-add_library(minhook STATIC
-    ${minhook_SOURCE_DIR}/src/buffer.c
-    ${minhook_SOURCE_DIR}/src/hook.c
-    ${minhook_SOURCE_DIR}/src/trampoline.c
-    ${minhook_SOURCE_DIR}/src/hde/hde32.c
-    ${minhook_SOURCE_DIR}/src/hde/hde64.c
-)
-target_include_directories(minhook PUBLIC ${minhook_SOURCE_DIR}/include)
-set_target_properties(minhook PROPERTIES LINKER_LANGUAGE C)
-
 # ImGui library (core + DX12 + Win32 backends)
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
