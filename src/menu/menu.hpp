@@ -23,6 +23,8 @@
 #include <menu/tabs/weapon_mods_tab.hpp>
 #include <menu/tabs/ped_tab.hpp>
 #include <menu/tabs/freecam_tab.hpp>
+#include <menu/tabs/spoofing_tab.hpp>
+#include <menu/tabs/recovery_tab.hpp>
 #include <menu/tabs/settings_tab.hpp>
 
 #include <atomic>
@@ -90,7 +92,7 @@ namespace Menu
             void ( *render )();
         };
 
-        static constexpr int TAB_COUNT = 19;
+        static constexpr int TAB_COUNT = 21;
 
         TabEntry m_tabs[TAB_COUNT] = {
             { "Home",        Tabs::RenderHome },
@@ -111,6 +113,8 @@ namespace Menu
             { "HUD",         Tabs::RenderHUD },
             { "Weapon Mods", Tabs::RenderWeaponMods },
             { "Peds",        Tabs::RenderPeds },
+            { "Spoofing",    Tabs::RenderSpoofing },
+            { "Recovery",    Tabs::RenderRecovery },
             { "Settings",    Tabs::RenderSettings },
         };
 
