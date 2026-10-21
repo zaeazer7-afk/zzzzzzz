@@ -1,12 +1,11 @@
 #include "render.h"
-#include "game.h"
-#include "memory.h"
 
 #include <imgui.h>
 #include <imgui_impl_dx12.h>
 #include <imgui_impl_win32.h>
 #include <d3d12.h>
 #include <dxgi1_4.h>
+#include <MinHook.h>
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -22,8 +21,8 @@ namespace {
     HWND                    g_hwnd       = nullptr;
     ID3D12Device*           g_device     = nullptr;
     IDXGISwapChain3*        g_swapchain  = nullptr;
+    ID3D12CommandQueue*     g_gameQueue  = nullptr;
 
-    ID3D12CommandQueue*         g_ownQueue   = nullptr;
     ID3D12DescriptorHeap*       g_srvHeap    = nullptr;
     ID3D12DescriptorHeap*       g_rtvHeap    = nullptr;
     ID3D12CommandAllocator*     g_cmdAlloc[MAX_BACK_BUFFERS] = {};
@@ -38,19 +37,18 @@ namespace {
     UINT64        g_fenceValues[MAX_BACK_BUFFERS] = {};
     UINT64        g_nextFence   = 1;
 
-    void**   g_origVtable   = nullptr;
-    void**   g_cloneVtable  = nullptr;
-    size_t   g_vtableSize   = 0;
     WNDPROC  g_origWndProc  = nullptr;
 
     render::DrawFn g_drawCb = nullptr;
     render::TickFn g_tickCb = nullptr;
 
-    using PresentFn       = HRESULT(WINAPI*)(IDXGISwapChain3*, UINT, UINT);
-    using ResizeBuffersFn = HRESULT(WINAPI*)(IDXGISwapChain3*, UINT, UINT, UINT, DXGI_FORMAT, UINT);
+    using PresentFn        = HRESULT(WINAPI*)(IDXGISwapChain3*, UINT, UINT);
+    using ResizeBuffersFn  = HRESULT(WINAPI*)(IDXGISwapChain3*, UINT, UINT, UINT, DXGI_FORMAT, UINT);
+    using ExecuteCmdListFn = void(WINAPI*)(ID3D12CommandQueue*, UINT, ID3D12CommandList* const*);
 
-    PresentFn       g_origPresent       = nullptr;
-    ResizeBuffersFn g_origResizeBuffers = nullptr;
+    PresentFn        g_origPresent        = nullptr;
+    ResizeBuffersFn  g_origResizeBuffers  = nullptr;
+    ExecuteCmdListFn g_origExecuteCmdList = nullptr;
 
     void cleanupRenderTargets() {
         for (UINT i = 0; i < MAX_BACK_BUFFERS; i++) {
@@ -75,9 +73,9 @@ namespace {
     }
 
     void waitForGpu() {
-        if (!g_ownQueue || !g_fence || !g_fenceEvent) return;
+        if (!g_gameQueue || !g_fence || !g_fenceEvent) return;
         auto val = g_nextFence++;
-        g_ownQueue->Signal(g_fence, val);
+        g_gameQueue->Signal(g_fence, val);
         if (g_fence->GetCompletedValue() < val) {
             g_fence->SetEventOnCompletion(val, g_fenceEvent);
             WaitForSingleObject(g_fenceEvent, 5000);
@@ -85,11 +83,6 @@ namespace {
     }
 
     void initDX12Resources() {
-        D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-        queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-        queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-        g_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&g_ownQueue));
-
         {
             D3D12_DESCRIPTOR_HEAP_DESC desc = {};
             desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -195,7 +188,18 @@ namespace {
         return CallWindowProcW(g_origWndProc, hwnd, msg, wp, lp);
     }
 
+    void WINAPI hookedExecuteCmdList(ID3D12CommandQueue* queue, UINT numCmdLists, ID3D12CommandList* const* ppCmdLists) {
+        if (!g_gameQueue) {
+            D3D12_COMMAND_QUEUE_DESC desc = queue->GetDesc();
+            if (desc.Type == D3D12_COMMAND_LIST_TYPE_DIRECT)
+                g_gameQueue = queue;
+        }
+        g_origExecuteCmdList(queue, numCmdLists, ppCmdLists);
+    }
+
     HRESULT WINAPI hookedPresent(IDXGISwapChain3* sc, UINT sync, UINT flags) {
+        if (!g_gameQueue) return g_origPresent(sc, sync, flags);
+
         if (!g_init) {
             g_swapchain = sc;
 
@@ -214,7 +218,7 @@ namespace {
             }
         }
 
-        if (!g_init || !g_ownQueue) return g_origPresent(sc, sync, flags);
+        if (!g_init || !g_gameQueue) return g_origPresent(sc, sync, flags);
 
         if (g_tickCb) g_tickCb();
 
@@ -259,10 +263,10 @@ namespace {
         g_cmdList->Close();
 
         ID3D12CommandList* ppCmdLists[] = { g_cmdList };
-        g_ownQueue->ExecuteCommandLists(1, ppCmdLists);
+        g_origExecuteCmdList(g_gameQueue, 1, ppCmdLists);
 
         g_fenceValues[bufIdx] = g_nextFence++;
-        g_ownQueue->Signal(g_fence, g_fenceValues[bufIdx]);
+        g_gameQueue->Signal(g_fence, g_fenceValues[bufIdx]);
 
         return g_origPresent(sc, sync, flags);
     }
@@ -291,21 +295,11 @@ namespace {
         }
         return hr;
     }
-
-    size_t countVtable(void** vtable) {
-        size_t count = 0;
-        MEMORY_BASIC_INFORMATION mbi;
-        while (VirtualQuery(vtable[count], &mbi, sizeof(mbi))) {
-            if (!(mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)))
-                break;
-            count++;
-            if (count > 512) break;
-        }
-        return count;
-    }
 }
 
 bool render::init() {
+    if (MH_Initialize() != MH_OK) return false;
+
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, DefWindowProcW, 0, 0, GetModuleHandleW(nullptr),
                         nullptr, nullptr, nullptr, nullptr, L"EnhDummy", nullptr };
     RegisterClassExW(&wc);
@@ -352,15 +346,12 @@ bool render::init() {
     sc1->QueryInterface(IID_PPV_ARGS(&sc));
     sc1->Release();
 
-    g_origVtable = *(void***)sc;
-    g_vtableSize = countVtable(g_origVtable);
-    g_origPresent       = (PresentFn)g_origVtable[8];
-    g_origResizeBuffers = (ResizeBuffersFn)g_origVtable[13];
+    void** scVtable = *(void***)sc;
+    void** cqVtable = *(void***)cmdQueue;
 
-    g_cloneVtable = new void*[g_vtableSize];
-    memcpy(g_cloneVtable, g_origVtable, g_vtableSize * sizeof(void*));
-    g_cloneVtable[8]  = (void*)hookedPresent;
-    g_cloneVtable[13] = (void*)hookedResizeBuffers;
+    auto fnPresent       = scVtable[8];
+    auto fnResizeBuffers = scVtable[13];
+    auto fnExecuteCmdList = cqVtable[10];
 
     sc->Release();
     cmdQueue->Release();
@@ -369,29 +360,17 @@ bool render::init() {
     DestroyWindow(hwnd);
     UnregisterClassW(wc.lpszClassName, wc.hInstance);
 
-    IDXGISwapChain3* gameSc = nullptr;
-    for (int tries = 0; tries < 600 && !gameSc; tries++) {
-        auto addr = mem::scanIDA(sigs::SWAPCHAIN);
-        if (addr) {
-            auto scPtr = mem::rip(addr);
-            auto rawSc = mem::read<IDXGISwapChain*>(scPtr);
-            if (rawSc) rawSc->QueryInterface(IID_PPV_ARGS(&gameSc));
-        }
-        if (!gameSc) Sleep(100);
-    }
-    if (!gameSc) return false;
+    MH_CreateHook(fnPresent, (void*)hookedPresent, (void**)&g_origPresent);
+    MH_CreateHook(fnResizeBuffers, (void*)hookedResizeBuffers, (void**)&g_origResizeBuffers);
+    MH_CreateHook(fnExecuteCmdList, (void*)hookedExecuteCmdList, (void**)&g_origExecuteCmdList);
+    MH_EnableHook(MH_ALL_HOOKS);
 
-    auto scVtablePtr = (void***)gameSc;
-    DWORD old;
-    VirtualProtect(scVtablePtr, sizeof(void*), PAGE_READWRITE, &old);
-    *scVtablePtr = g_cloneVtable;
-    VirtualProtect(scVtablePtr, sizeof(void*), old, &old);
-
-    g_swapchain = gameSc;
     return true;
 }
 
 void render::shutdown() {
+    MH_DisableHook(MH_ALL_HOOKS);
+
     waitForGpu();
 
     if (g_origWndProc && g_hwnd)
@@ -408,15 +387,13 @@ void render::shutdown() {
     for (int i = 0; i < MAX_BACK_BUFFERS; i++) {
         if (g_cmdAlloc[i]) { g_cmdAlloc[i]->Release(); g_cmdAlloc[i] = nullptr; }
     }
-    if (g_cmdList)   { g_cmdList->Release();   g_cmdList = nullptr; }
-    if (g_srvHeap)   { g_srvHeap->Release();   g_srvHeap = nullptr; }
-    if (g_rtvHeap)   { g_rtvHeap->Release();   g_rtvHeap = nullptr; }
-    if (g_fence)     { g_fence->Release();     g_fence = nullptr; }
+    if (g_cmdList)    { g_cmdList->Release();    g_cmdList = nullptr; }
+    if (g_srvHeap)    { g_srvHeap->Release();    g_srvHeap = nullptr; }
+    if (g_rtvHeap)    { g_rtvHeap->Release();    g_rtvHeap = nullptr; }
+    if (g_fence)      { g_fence->Release();      g_fence = nullptr; }
     if (g_fenceEvent) { CloseHandle(g_fenceEvent); g_fenceEvent = nullptr; }
-    if (g_ownQueue)  { g_ownQueue->Release();  g_ownQueue = nullptr; }
 
-    delete[] g_cloneVtable;
-    g_cloneVtable = nullptr;
+    MH_Uninitialize();
 }
 
 bool render::isMenuOpen()  { return g_open; }

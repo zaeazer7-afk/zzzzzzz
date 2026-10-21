@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(enhanced LANGUAGES CXX)
+project(enhanced LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -7,14 +7,30 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Static CRT for manual map injection compatibility
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-# ImGui — fetch from GitHub
+# Dependencies — fetch from GitHub
 include(FetchContent)
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
     GIT_TAG        v1.90.4
 )
-FetchContent_MakeAvailable(imgui)
+FetchContent_Declare(
+    minhook
+    GIT_REPOSITORY https://github.com/TsudaKageyu/minhook.git
+    GIT_TAG        v1.3.4
+)
+FetchContent_MakeAvailable(imgui minhook)
+
+# MinHook library (no CMakeLists in upstream repo)
+add_library(minhook STATIC
+    ${minhook_SOURCE_DIR}/src/buffer.c
+    ${minhook_SOURCE_DIR}/src/hook.c
+    ${minhook_SOURCE_DIR}/src/trampoline.c
+    ${minhook_SOURCE_DIR}/src/hde/hde32.c
+    ${minhook_SOURCE_DIR}/src/hde/hde64.c
+)
+target_include_directories(minhook PUBLIC ${minhook_SOURCE_DIR}/include)
+set_target_properties(minhook PROPERTIES LINKER_LANGUAGE C)
 
 # ImGui library (core + DX12 + Win32 backends)
 add_library(imgui STATIC
@@ -42,6 +58,7 @@ add_library(enhanced SHARED
 target_include_directories(enhanced PRIVATE src)
 target_link_libraries(enhanced PRIVATE
     imgui
+    minhook
     d3d12 dxgi d3dcompiler
 )
 target_precompile_headers(enhanced PRIVATE src/pch.h)
