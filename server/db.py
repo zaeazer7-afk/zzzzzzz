@@ -85,6 +85,12 @@ def reset_hwid(key):
     conn.close()
     return cur.rowcount > 0
 
+def bind_discord(key, discord_id):
+    conn = get_conn()
+    conn.execute("UPDATE keys SET note = ? WHERE key = ?", (discord_id, key))
+    conn.commit()
+    conn.close()
+
 def get_key_info(key):
     conn = get_conn()
     row = conn.execute("SELECT * FROM keys WHERE key = ?", (key,)).fetchone()

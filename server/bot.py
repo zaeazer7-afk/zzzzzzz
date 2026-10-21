@@ -16,6 +16,7 @@ import threading
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN", "")
 ADMIN_ROLE_ID = int(os.environ.get("ADMIN_ROLE_ID", "0"))
+CUSTOMER_ROLE_ID = int(os.environ.get("CUSTOMER_ROLE_ID", "0"))
 
 DURATIONS = {
     "1h":       3600,
@@ -30,6 +31,7 @@ DURATIONS = {
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 def is_admin(ctx):
@@ -123,10 +125,24 @@ async def delkey(ctx, key: str):
         await ctx.reply("No permission.")
         return
 
-    if db.delete_key(key):
-        await ctx.reply(f"Key `{key}` deleted.")
-    else:
+    info = db.get_key_info(key)
+    if not info:
         await ctx.reply("Key not found.")
+        return
+
+    discord_id = info.get("note", "")
+    db.delete_key(key)
+
+    if discord_id and CUSTOMER_ROLE_ID and ctx.guild:
+        try:
+            member = await ctx.guild.fetch_member(int(discord_id))
+            role = ctx.guild.get_role(CUSTOMER_ROLE_ID)
+            if member and role:
+                await member.remove_roles(role)
+        except (discord.Forbidden, discord.NotFound, ValueError):
+            pass
+
+    await ctx.reply(f"Key `{key}` deleted.")
 
 @bot.command(name="resetkey")
 async def resetkey(ctx, key: str):
@@ -183,15 +199,56 @@ async def keys_list(ctx):
 
     await ctx.reply(embed=embed)
 
+@bot.command(name="redeem")
+async def redeem(ctx, key: str):
+    info = db.get_key_info(key)
+    if not info:
+        await ctx.reply("Invalid key.")
+        return
+
+    now = time.time()
+    if info["expires_at"] != 0 and now > info["expires_at"]:
+        await ctx.reply("This key has expired.")
+        return
+
+    if info["hwid"] and info["used"]:
+        discord_id = info.get("note", "")
+        if discord_id and discord_id != str(ctx.author.id):
+            await ctx.reply("This key is already bound to another user.")
+            return
+
+    db.bind_discord(key, str(ctx.author.id))
+
+    if CUSTOMER_ROLE_ID and ctx.guild:
+        role = ctx.guild.get_role(CUSTOMER_ROLE_ID)
+        if role:
+            try:
+                await ctx.author.add_roles(role)
+            except discord.Forbidden:
+                await ctx.reply("Key redeemed but I couldn't assign the role — check my permissions.")
+                return
+
+    remaining = fmt_remaining(info["expires_at"])
+    embed = discord.Embed(title="Key Redeemed", color=0x00FF00)
+    embed.add_field(name="Remaining", value=remaining, inline=True)
+    embed.description = "You now have access. Use your key in the loader."
+    await ctx.reply(embed=embed)
+
+    try:
+        await ctx.message.delete()
+    except discord.Forbidden:
+        pass
+
 @bot.command(name="help_keys")
 async def help_keys(ctx):
     embed = discord.Embed(title="Trident Key Commands", color=0x7B2FBE)
-    embed.add_field(name="!genkey [duration] [note]", value="Generate a key (1h/1d/3d/7d/14d/30d/90d/lifetime)", inline=False)
-    embed.add_field(name="!genkeys [count] [duration]", value="Generate multiple keys (max 25)", inline=False)
-    embed.add_field(name="!delkey <key>", value="Delete a key", inline=False)
-    embed.add_field(name="!resetkey <key>", value="Reset HWID binding", inline=False)
-    embed.add_field(name="!keyinfo <key>", value="Show key details", inline=False)
-    embed.add_field(name="!keys", value="List all keys", inline=False)
+    embed.add_field(name="!redeem <key>", value="Redeem a key and get the Trident Internal role", inline=False)
+    embed.add_field(name="!genkey [duration] [note]", value="Generate a key (1h/1d/3d/7d/14d/30d/90d/lifetime) [Admin]", inline=False)
+    embed.add_field(name="!genkeys [count] [duration]", value="Generate multiple keys (max 25) [Admin]", inline=False)
+    embed.add_field(name="!delkey <key>", value="Delete a key and remove role [Admin]", inline=False)
+    embed.add_field(name="!resetkey <key>", value="Reset HWID binding [Admin]", inline=False)
+    embed.add_field(name="!keyinfo <key>", value="Show key details [Admin]", inline=False)
+    embed.add_field(name="!keys", value="List all keys [Admin]", inline=False)
     await ctx.reply(embed=embed)
 
 

@@ -12,6 +12,9 @@ set DISCORD_TOKEN=YOUR_BOT_TOKEN_HERE
 :: --- OPTIONAL: Discord role ID that can manage keys (0 = owner only) ---
 set ADMIN_ROLE_ID=0
 
+:: --- Role given to users when they redeem a key ---
+set CUSTOMER_ROLE_ID=1562293947777417316
+
 :: --- API port (loader connects to this) ---
 set TRIDENT_PORT=8888
 
