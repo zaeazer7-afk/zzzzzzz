@@ -5,7 +5,7 @@ Uses patterns sourced from YimMenuV2 (verified for GTA5_Enhanced.exe).
 
 Usage:
     py gta5_scanner.py
-    py gta5_scanner.py "D:\path\to\GTA5.exe"
+    py gta5_scanner.py "D:\path\to\GTA5_Enhanced.exe"
 """
 
 import struct
@@ -13,7 +13,7 @@ import sys
 import os
 import time
 
-DEFAULT_PATH = r"C:\Program Files\Rockstar Games\Grand Theft Auto V Enhanced\GTA5.exe"
+DEFAULT_PATH = r"C:\Program Files\Rockstar Games\Grand Theft Auto V Enhanced\GTA5_Enhanced.exe"
 
 
 # ============================================================
