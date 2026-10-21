@@ -1,6 +1,6 @@
 #pragma once
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 #include <features/hud.hpp>
 
 namespace Menu::Tabs

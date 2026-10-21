@@ -1,6 +1,6 @@
 #pragma once
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 #include <core/scheduler.hpp>
 #include <scripts/library.hpp>
 

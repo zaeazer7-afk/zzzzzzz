@@ -1,6 +1,6 @@
 #pragma once
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 #include <features/weapon_mods.hpp>
 
 namespace Menu::Tabs

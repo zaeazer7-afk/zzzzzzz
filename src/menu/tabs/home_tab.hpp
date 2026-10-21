@@ -1,6 +1,6 @@
 #pragma once
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 #include <features/esp.hpp>
 #include <features/aimbot.hpp>
 #include <core/lua_runtime.hpp>
