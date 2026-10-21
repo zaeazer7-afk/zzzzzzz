@@ -75,15 +75,7 @@ CAT_ART = (
     f"                  {PURP}%@{DPINK}@@@@@@@@@@@@@{PURP}@@@@@@@{RST}\n"
     f"                   {DPINK}#{PURP}@{DPINK}@@@@@{PURP}@%{PURP}@{DPINK}@@@@@{DPINK}#{RST}\n"
     f"                    {PURP}@@@@@@{PURP}% {PURP}%{PURP}@@@@@@{RST}\n"
-).replace("\n", "\r\n")
-
-SAKURA_TEXT = (
-    f"{DRED}  ######  #####  ##   ## ##    ## ######   ##### {RST}\n"
-    f"{DRED} ##      ##   ## ##  ##  ##    ## ##   ## ##   ##{RST}\n"
-    f"{RED}  #####  ####### #####   ##    ## ######  #######{RST}\n"
-    f"{DRED}      ## ##   ## ##  ##  ##    ## ##   ## ##   ##{RST}\n"
-    f"{DRED} ######  ##   ## ##   ##  ######  ##   ## ##   ##{RST}\n"
-).replace("\n", "\r\n")
+)
 
 
 # ─── XOR ENCRYPTION ───
@@ -124,6 +116,20 @@ def recv_encrypted(sock) -> dict:
 
 
 # ─── FORMATTING HELPERS ───
+
+def _vis_len(s):
+    n = 0
+    i = 0
+    while i < len(s):
+        if s[i] == '\033':
+            while i < len(s) and s[i] != 'm':
+                i += 1
+            i += 1
+        else:
+            n += 1
+            i += 1
+    return n
+
 
 def fmt_time(ts):
     return datetime.datetime.fromtimestamp(ts).strftime("%H:%M:%S")
@@ -169,19 +175,42 @@ def table_row(cells, widths, colors=None):
 
 def make_banner(bot_count, username, uptime_str, attack_count, running):
     sep = f"{DRED}{'─' * 60}{RST}"
-    return (
-        f"\n{CAT_ART}\n"
-        f"{sep}\n\n"
-        f"{SAKURA_TEXT}\n"
-        f"{sep}\n\n"
-        f"  {GREY}User:{RST}       {PINK}{username}{RST}\n"
-        f"  {GREY}Bots:{RST}       {WHITE}{bot_count}{RST}\n"
-        f"  {GREY}Uptime:{RST}     {WHITE}{uptime_str}{RST}\n"
-        f"  {GREY}Attacks:{RST}    {WHITE}{attack_count}{RST}\n"
-        f"  {GREY}Running:{RST}    {WHITE}{running}{RST}\n"
-        f"  {GREY}Encrypted:{RST}  {GREEN}Yes{RST} {GREY}(XOR){RST}\n\n"
-        f"{sep}\n"
-    ).replace("\n", "\r\n")
+
+    cat_lines = CAT_ART.split("\n")
+    while cat_lines and not cat_lines[0].strip():
+        cat_lines.pop(0)
+    while cat_lines and not cat_lines[-1].strip():
+        cat_lines.pop()
+
+    min_ws = min((len(l) - len(l.lstrip(' ')) for l in cat_lines if l.strip()), default=0)
+    cat_lines = [l[min_ws:] for l in cat_lines]
+
+    stats = [
+        f" {GREY}User:{RST}      {PINK}{username}{RST}",
+        f" {GREY}Bots:{RST}      {WHITE}{bot_count}{RST}",
+        f" {GREY}Uptime:{RST}    {WHITE}{uptime_str}{RST}",
+        f" {GREY}Attacks:{RST}   {WHITE}{attack_count}{RST}",
+        f" {GREY}Running:{RST}   {WHITE}{running}{RST}",
+        f" {GREY}Encrypted:{RST} {GREEN}Yes{RST} {GREY}(XOR){RST}",
+    ]
+
+    SW = 24
+    start = (len(cat_lines) - len(stats)) // 2
+
+    merged = []
+    for i, cl in enumerate(cat_lines):
+        si = i - start
+        if 0 <= si < len(stats):
+            s = stats[si]
+            pad = SW - _vis_len(s)
+            if pad > 0:
+                s += " " * pad
+            merged.append(s + cl)
+        else:
+            merged.append(" " * SW + cl)
+
+    body = "\n".join(merged)
+    return (f"\n{sep}\n\n{body}\n\n{sep}\n").replace("\n", "\r\n")
 
 
 def make_title(bot_count, uptime_str, running):
