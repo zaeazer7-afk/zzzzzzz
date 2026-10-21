@@ -1,0 +1,23 @@
+# Build output
+build/
+*.obj
+*.pdb
+*.ilk
+*.log
+
+# VS temp files
+.vs/
+*.user
+*.suo
+*.ncb
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+ipch/
+
+# Dependencies (fetched by setup_deps.bat)
+deps/imgui/
+
+# Generated payload header (build-time artifact)
+loader/payload.hpp
