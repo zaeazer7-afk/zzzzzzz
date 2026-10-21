@@ -1,4 +1,5 @@
 #include "render.h"
+#include "game.h"
 #include "memory.h"
 
 #include <imgui.h>
